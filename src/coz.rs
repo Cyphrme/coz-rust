@@ -111,6 +111,7 @@ impl Pay {
 ///     .build();
 /// ```
 #[derive(Debug, Default)]
+#[must_use = "builders do nothing unless you call .build() or .sign()"]
 pub struct PayBuilder {
     pay: Pay,
 }

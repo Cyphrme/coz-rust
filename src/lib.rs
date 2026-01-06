@@ -20,6 +20,8 @@
 pub mod alg;
 pub mod b64;
 pub mod error;
+pub mod key;
 
 pub use alg::{Algorithm, ES256, ES384, ES512, Ed25519};
 pub use error::{Error, Result};
+pub use key::{SigningKey, Thumbprint, VerifyingKey};

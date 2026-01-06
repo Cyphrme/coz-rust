@@ -54,6 +54,7 @@ communication.
 - **`no_std` compatible** - Targets embedded and WASM environments
 - **Type-safe** - Leverages Rust's type system for compile-time correctness
 - **Minimal dependencies** - RustCrypto ecosystem only
+- **MSRV 1.75** - Minimum supported Rust version
 
 ## Specification Overview
 

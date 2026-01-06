@@ -6,7 +6,6 @@
 
 use std::marker::PhantomData;
 
-use digest::Digest;
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
@@ -395,6 +394,8 @@ mod tests {
     fn es384_generate_and_sign() {
         let key = SigningKey::<ES384>::generate();
         assert_eq!(key.algorithm(), "ES384");
+        // ES384 thumbprint uses SHA-384 (48 bytes)
+        assert_eq!(key.thumbprint().as_bytes().len(), 48);
 
         let digest = sha2::Sha384::digest(b"test message");
         let sig = key.sign(&digest);
@@ -407,6 +408,8 @@ mod tests {
     fn es512_generate_and_sign() {
         let key = SigningKey::<ES512>::generate();
         assert_eq!(key.algorithm(), "ES512");
+        // ES512 thumbprint uses SHA-512 (64 bytes)
+        assert_eq!(key.thumbprint().as_bytes().len(), 64);
 
         let digest = sha2::Sha512::digest(b"test message");
         let sig = key.sign(&digest);
@@ -420,6 +423,8 @@ mod tests {
         let key = SigningKey::<Ed25519>::generate();
         assert_eq!(key.algorithm(), "Ed25519");
         assert_eq!(key.verifying_key().public_key_bytes().len(), 32);
+        // Ed25519 thumbprint uses SHA-512 (64 bytes)
+        assert_eq!(key.thumbprint().as_bytes().len(), 64);
 
         // Ed25519 signs the message directly, not a digest
         let msg = b"test message";

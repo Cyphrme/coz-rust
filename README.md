@@ -37,6 +37,24 @@ communication.
 
 🚧 **Under Development** - This library is being built incrementally.
 
+### Algorithm Support
+
+| Algorithm | Status      | Notes                          |
+| --------- | ----------- | ------------------------------ |
+| ES256     | ✅ Planned  | ECDSA P-256                    |
+| ES384     | ✅ Planned  | ECDSA P-384                    |
+| ES512     | ✅ Planned  | ECDSA P-521                    |
+| Ed25519   | ✅ Planned  | EdDSA                          |
+| Ed25519ph | 🔮 Future   | Pre-hashed Ed25519             |
+| ES256k    | 🔮 Future   | secp256k1 for Bitcoin/Ethereum |
+| ES224     | ⏸️ Deferred | P-224 crate less mature        |
+
+### Features
+
+- **`no_std` compatible** - Targets embedded and WASM environments
+- **Type-safe** - Leverages Rust's type system for compile-time correctness
+- **Minimal dependencies** - RustCrypto ecosystem only
+
 ## Specification Overview
 
 ### Standard Fields
@@ -73,7 +91,10 @@ communication.
 | `czd` | Digest of `[cad, sig]`      |
 | `can` | Canon (ordered field names) |
 
-### Supported Algorithms
+### Algorithms (Coz Specification)
+
+The full Coz specification supports these algorithms. See status table above for
+this implementation's current coverage.
 
 - **ECDSA**: ES224, ES256, ES384, ES512, ES256k
 - **EdDSA**: Ed25519, Ed25519ph
@@ -96,21 +117,27 @@ base64 URL-safe encoding with padding truncated (b64ut).
 ## Usage
 
 ```rust
-use coz::{Key, SigAlg, Pay, Coz};
+use coz::{SigningKey, ES256, PayBuilder};
+use rand::rngs::OsRng;
 
-// Generate a new key
-let key = Key::generate(SigAlg::ES256)?;
+// Generate a new ES256 signing key
+let signing_key = SigningKey::<ES256>::generate(&mut OsRng);
 
-// Create and sign a message
-let pay = Pay::new()
+// Create and sign a message using the builder pattern
+let coz = PayBuilder::new()
     .msg("Hello from Coz Rust!")
-    .typ("example/hello");
+    .typ("example/hello")
+    .sign(&signing_key)?;
 
-let coz = key.sign_pay(&pay)?;
+// Extract the verifying key (public only)
+let verifying_key = signing_key.verifying_key();
 
-// Verify a message
-let valid = key.verify_coz(&coz)?;
-assert!(valid);
+// Verify the message
+assert!(verifying_key.verify(&coz));
+
+// Thumbprint is algorithm-aware
+let tmb: &Thumbprint<ES256> = signing_key.thumbprint();
+println!("Key thumbprint: {}", tmb);
 ```
 
 ## Related Projects

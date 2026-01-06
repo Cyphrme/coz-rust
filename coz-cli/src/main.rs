@@ -156,8 +156,41 @@ fn cmd_signpay(_pay: PayInput, _key: KeyInput) -> Result<()> {
     todo!("sign payload")
 }
 
-fn cmd_verify(_coz: CozInput, _key: KeyInput) -> Result<()> {
-    todo!("verify signature")
+/// Verify a Coz message signature.
+fn cmd_verify(coz: CozInput, key: KeyInput) -> Result<()> {
+    use anyhow::Context;
+
+    let coz_json = coz.load()?;
+    let key_json = key.load()?;
+
+    // Extract pay and sig from coz
+    let pay_value = coz_json.get("pay").context("coz missing 'pay' field")?;
+    let pay_json = serde_json::to_vec(pay_value)?;
+
+    let sig_b64 = coz_json
+        .get("sig")
+        .and_then(|v| v.as_str())
+        .context("coz missing 'sig' field")?;
+    let sig = Base64UrlUnpadded::decode_vec(sig_b64).context("invalid base64 in 'sig' field")?;
+
+    // Extract alg and pub from key
+    let alg = key_json
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .context("key missing 'alg' field")?;
+    let pub_b64 = key_json
+        .get("pub")
+        .and_then(|v| v.as_str())
+        .context("key missing 'pub' field")?;
+    let pub_bytes =
+        Base64UrlUnpadded::decode_vec(pub_b64).context("invalid base64 in 'pub' field")?;
+
+    // Verify
+    let valid = coz_rs::verify_json(&pay_json, &sig, alg, &pub_bytes)
+        .with_context(|| format!("unsupported algorithm: {alg}"))?;
+
+    println!("{}", valid);
+    Ok(())
 }
 
 fn cmd_meta(_coz: CozInput) -> Result<()> {

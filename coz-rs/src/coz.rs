@@ -292,6 +292,63 @@ impl<A: Algorithm + crate::key::ops::KeyOps> Serialize for Coz<A> {
 }
 
 // ============================================================================
+// Runtime verification
+// ============================================================================
+
+/// Verify a Coz message signature from JSON components.
+///
+/// This function enables verification without needing compile-time algorithm types.
+/// Returns `None` for unknown algorithms.
+///
+/// # Arguments
+///
+/// * `pay_json` - The raw JSON bytes of the pay object
+/// * `sig` - The signature bytes
+/// * `alg` - The algorithm name (e.g., "ES256", "Ed25519")
+/// * `pub_bytes` - The public key bytes
+///
+/// # Example
+///
+/// ```ignore
+/// let valid = verify_json(pay_json, &sig, "ES256", &pub_bytes);
+/// ```
+pub fn verify_json(pay_json: &[u8], sig: &[u8], alg: &str, pub_bytes: &[u8]) -> Option<bool> {
+    use crate::alg::{ES256, ES384, ES512, Ed25519};
+
+    match alg {
+        "ES256" => Some(verify_with_alg::<ES256>(pay_json, sig, pub_bytes)),
+        "ES384" => Some(verify_with_alg::<ES384>(pay_json, sig, pub_bytes)),
+        "ES512" => Some(verify_with_alg::<ES512>(pay_json, sig, pub_bytes)),
+        "Ed25519" => Some(verify_with_alg::<Ed25519>(pay_json, sig, pub_bytes)),
+        _ => None,
+    }
+}
+
+fn verify_with_alg<A>(pay_json: &[u8], sig: &[u8], pub_bytes: &[u8]) -> bool
+where
+    A: Algorithm + crate::key::ops::KeyOps,
+{
+    // Compute canonical hash of pay
+    let Ok(cad) = canonical_hash::<A>(pay_json, None) else {
+        return false;
+    };
+
+    // Create verifying key from pub bytes and verify
+    let Some(vk) = create_verifying_key::<A>(pub_bytes) else {
+        return false;
+    };
+
+    vk.verify(cad.as_bytes(), sig)
+}
+
+fn create_verifying_key<A>(pub_bytes: &[u8]) -> Option<VerifyingKey<A>>
+where
+    A: Algorithm + crate::key::ops::KeyOps,
+{
+    crate::key::verifying_key_from_bytes::<A>(pub_bytes)
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

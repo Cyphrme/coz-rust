@@ -18,8 +18,8 @@ use crate::alg::{Algorithm, ES256, ES384, ES512, Ed25519};
 
 /// A key thumbprint - the hash of the canonical `{"alg":"...","pub":"..."}`.
 ///
-/// Thumbprints uniquely identify keys and are always SHA-256 (32 bytes),
-/// regardless of the algorithm.
+/// Thumbprints uniquely identify keys. The hash algorithm is determined by
+/// the key's algorithm (e.g., ES256 → SHA-256, ES384 → SHA-384, ES512 → SHA-512).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Thumbprint(#[serde(with = "crate::b64")] Vec<u8>);
 
@@ -353,13 +353,17 @@ where
 // ============================================================================
 
 /// Compute the thumbprint for a key.
+///
+/// The thumbprint is the hash of the canonical `{"alg":"...","pub":"..."}` JSON.
+/// The hash algorithm is determined by the key's algorithm (e.g., ES256 → SHA-256,
+/// ES384 → SHA-384, ES512 → SHA-512, Ed25519 → SHA-512).
 fn compute_thumbprint<A: Algorithm>(pub_bytes: &[u8]) -> Thumbprint {
     use base64ct::{Base64UrlUnpadded, Encoding};
-    use sha2::Sha256;
+    use digest::Digest;
 
     let pub_b64 = Base64UrlUnpadded::encode_string(pub_bytes);
     let canonical = format!(r#"{{"alg":"{}","pub":"{}"}}"#, A::NAME, pub_b64);
-    let hash = Sha256::digest(canonical.as_bytes());
+    let hash = <A::Hasher>::digest(canonical.as_bytes());
 
     Thumbprint::from_bytes(hash.to_vec())
 }

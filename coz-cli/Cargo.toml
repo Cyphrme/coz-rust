@@ -1,0 +1,17 @@
+[package]
+description  = "CLI for Coz cryptographic JSON messaging"
+edition      = "2024"
+license      = "BSD-3-Clause"
+name         = "coz-cli"
+rust-version = "1.85"
+version      = "0.1.0"
+
+[[bin]]
+name = "coz"
+path = "src/main.rs"
+
+[dependencies]
+anyhow     = "1"
+clap       = { version = "4", features = ["derive"] }
+coz-rs     = { path = "../coz-rs", version = "0.1" }
+serde_json = "1"

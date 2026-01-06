@@ -32,7 +32,7 @@ communication.
 - **Spec compliant** - Cross-verified with Go reference implementation
 - **Non-malleable** - ECDSA signatures normalized to low-S form
 - **Minimal dependencies** - RustCrypto ecosystem only
-- **MSRV 1.75** - Minimum supported Rust version
+- **MSRV 1.85** - Minimum supported Rust version
 
 ## Algorithm Support
 

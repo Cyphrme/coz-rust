@@ -378,4 +378,70 @@ mod tests {
         pay.rvk = Some(0);
         assert!(!pay.is_revoke());
     }
+
+    #[test]
+    fn unicode_in_message() {
+        let key = SigningKey::<ES256>::generate();
+
+        // Test various Unicode content
+        let messages = [
+            "Hello, 世界!",  // Chinese
+            "Привет мир",    // Russian
+            "مرحبا بالعالم", // Arabic
+            "🔐🔑✅",        // Emoji
+            "Ñoño señor",    // Spanish diacritics
+            "日本語テスト",  // Japanese
+        ];
+
+        for msg in messages {
+            let coz = PayBuilder::new().msg(msg).sign(&key).unwrap();
+
+            assert!(coz.verify(key.verifying_key()));
+            assert_eq!(coz.pay.msg, Some(msg.to_string()));
+        }
+    }
+
+    #[test]
+    fn nested_json_in_extra_fields() {
+        let key = SigningKey::<ES256>::generate();
+
+        // Build with nested JSON structure
+        let nested = serde_json::json!({
+            "user": {
+                "name": "Alice",
+                "roles": ["admin", "user"],
+                "metadata": {
+                    "created": 1623132000,
+                    "active": true
+                }
+            }
+        });
+
+        let coz = PayBuilder::new()
+            .msg("test")
+            .field("data", nested.clone())
+            .sign(&key)
+            .unwrap();
+
+        assert!(coz.verify(key.verifying_key()));
+        assert_eq!(coz.pay.extra.get("data"), Some(&nested));
+    }
+
+    #[test]
+    fn timestamp_boundary_values() {
+        let pay_zero = PayBuilder::new().now(0).build();
+        assert_eq!(pay_zero.now, Some(0));
+
+        let pay_one = PayBuilder::new().now(1).build();
+        assert_eq!(pay_one.now, Some(1));
+
+        // MAX_SAFE_INTEGER (2^53 - 1)
+        let max_safe = 9007199254740991_i64;
+        let pay_max = PayBuilder::new().now(max_safe).build();
+        assert_eq!(pay_max.now, Some(max_safe));
+
+        // Negative timestamps
+        let pay_neg = PayBuilder::new().now(-1).build();
+        assert_eq!(pay_neg.now, Some(-1));
+    }
 }

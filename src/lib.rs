@@ -18,3 +18,6 @@
 #![warn(rust_2018_idioms)]
 
 pub mod b64;
+pub mod error;
+
+pub use error::{Error, Result};

@@ -51,7 +51,7 @@ impl std::fmt::Display for Thumbprint {
 // Internal key operations module (keeps KeyOps private)
 // ============================================================================
 
-mod ops {
+pub(crate) mod ops {
     use super::*;
 
     /// Internal trait for algorithm-specific key operations.

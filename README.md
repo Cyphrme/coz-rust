@@ -26,119 +26,123 @@ communication.
 }
 ```
 
-## Design Goals
+## Features
 
-1. **Idiomatic Rust** - Leverage Rust's type system and ownership model
-2. **Minimal dependencies** - Production-ready with a small footprint
-3. **Specification compliance** - Match the Go reference implementation behavior
-4. **Interoperability** - Compatible with Go Coz and CozJS
+- **Type-safe** - Compile-time algorithm correctness via generics
+- **Spec compliant** - Cross-verified with Go reference implementation
+- **Non-malleable** - ECDSA signatures normalized to low-S form
+- **Minimal dependencies** - RustCrypto ecosystem only
+- **MSRV 1.75** - Minimum supported Rust version
 
-## Status
-
-🚧 **Under Development** - This library is being built incrementally.
-
-### Algorithm Support
+## Algorithm Support
 
 | Algorithm | Status      | Notes                          |
 | --------- | ----------- | ------------------------------ |
-| ES256     | ✅ Planned  | ECDSA P-256                    |
-| ES384     | ✅ Planned  | ECDSA P-384                    |
-| ES512     | ✅ Planned  | ECDSA P-521                    |
-| Ed25519   | ✅ Planned  | EdDSA                          |
+| ES256     | ✅          | ECDSA P-256                    |
+| ES384     | ✅          | ECDSA P-384                    |
+| ES512     | ✅          | ECDSA P-521                    |
+| Ed25519   | ✅          | EdDSA                          |
 | Ed25519ph | 🔮 Future   | Pre-hashed Ed25519             |
 | ES256k    | 🔮 Future   | secp256k1 for Bitcoin/Ethereum |
 | ES224     | ⏸️ Deferred | P-224 crate less mature        |
-
-### Features
-
-- **Type-safe** - Leverages Rust's type system for compile-time correctness
-- **Minimal dependencies** - RustCrypto ecosystem
-- **MSRV 1.75** - Minimum supported Rust version
-
-## Specification Overview
-
-### Standard Fields
-
-#### Pay (Payload) Fields
-
-| Field | Description                 | Example                 |
-| ----- | --------------------------- | ----------------------- |
-| `alg` | Signing algorithm           | `"ES256"`               |
-| `now` | Unix timestamp of signature | `1623132000`            |
-| `tmb` | Key thumbprint              | `"U5XUZ..."`            |
-| `typ` | Application-defined type    | `"cyphr.me/msg/create"` |
-| `msg` | Message payload             | `"Hello, world!"`       |
-| `dig` | Digest of external content  | `"LSgWE..."`            |
-
-#### Key Fields
-
-| Field | Description                       | Example      |
-| ----- | --------------------------------- | ------------ |
-| `alg` | Algorithm                         | `"ES256"`    |
-| `pub` | Public key component              | `"2nTOa..."` |
-| `prv` | Private key component             | `"bNstg..."` |
-| `tmb` | Thumbprint (hash of `[alg, pub]`) | `"U5XUZ..."` |
-| `tag` | Human-readable label              | `"My Key"`   |
-| `rvk` | Revocation timestamp              | `1623132000` |
-
-#### Coz Object Fields
-
-| Field | Description                 |
-| ----- | --------------------------- |
-| `pay` | Signed payload              |
-| `sig` | Signature over `cad`        |
-| `cad` | Canonical digest of `pay`   |
-| `czd` | Digest of `[cad, sig]`      |
-| `can` | Canon (ordered field names) |
-
-### Algorithms (Coz Specification)
-
-The full Coz specification supports these algorithms. See status table above for
-this implementation's current coverage.
-
-- **ECDSA**: ES224, ES256, ES384, ES512, ES256k
-- **EdDSA**: Ed25519, Ed25519ph
-
-### Canonicalization
-
-Coz uses JSON canonicalization for creating digests, signing, and verification:
-
-1. Omit fields not in canon
-2. Order fields by canon
-3. Omit insignificant whitespace
-
-The key thumbprint (`tmb`) uses the fixed canon `["alg", "pub"]`.
-
-### Binary Encoding
-
-All binary values use [RFC 4648](https://datatracker.ietf.org/doc/html/rfc4648)
-base64 URL-safe encoding with padding truncated (b64ut).
 
 ## Usage
 
 ```rust
 use coz::{SigningKey, ES256, PayBuilder};
-use rand::rngs::OsRng;
 
 // Generate a new ES256 signing key
-let signing_key = SigningKey::<ES256>::generate(&mut OsRng);
+let key = SigningKey::<ES256>::generate();
 
-// Create and sign a message using the builder pattern
+// Create and sign a message
 let coz = PayBuilder::new()
     .msg("Hello from Coz Rust!")
     .typ("example/hello")
-    .sign(&signing_key)?;
-
-// Extract the verifying key (public only)
-let verifying_key = signing_key.verifying_key();
+    .sign(&key)?;
 
 // Verify the message
-assert!(verifying_key.verify(&coz));
+assert!(coz.verify(key.verifying_key()));
 
-// Thumbprint is algorithm-aware
-let tmb: &Thumbprint<ES256> = signing_key.thumbprint();
-println!("Key thumbprint: {}", tmb);
+// Get key thumbprint
+println!("Key: {}", key.thumbprint());
 ```
+
+## API Overview
+
+### Key Types
+
+```rust
+// Generate keys
+let key = SigningKey::<ES256>::generate();
+let verifying_key = key.verifying_key();
+let thumbprint = key.thumbprint();
+
+// Sign raw digests
+let sig = key.sign(&digest);
+let valid = verifying_key.verify(&digest, &sig);
+```
+
+### PayBuilder
+
+```rust
+let pay = PayBuilder::new()
+    .msg("Hello")                    // Message content
+    .typ("example/type")             // Application type
+    .now(1623132000)                 // Unix timestamp
+    .dig(hash_bytes)                 // External digest
+    .field("custom", json_value)     // Custom fields
+    .build();                        // Build Pay
+
+// Or sign directly
+let coz = PayBuilder::new().msg("Hi").sign(&key)?;
+```
+
+### Coz Message
+
+```rust
+// Sign a payload
+let coz = Coz::sign(pay, &key)?;
+
+// Verify
+assert!(coz.verify(&verifying_key));
+
+// Access fields
+let cad = coz.cad();  // Canonical digest
+let czd = coz.czd();  // Coz digest
+let sig = coz.sig();  // Signature bytes
+```
+
+### Canonicalization
+
+```rust
+use coz::{canon, canonical, canonical_hash, KEY_CANON, CZD_CANON};
+
+// Extract field order
+let fields = canon(json)?;
+
+// Generate canonical form
+let compact = canonical(json, None)?;
+let ordered = canonical(json, Some(&["a", "b"]))?;
+
+// Compute canonical digest
+let cad = canonical_hash::<ES256>(json, None)?;
+```
+
+### Revocation
+
+```rust
+use coz::{revoke, is_valid_rvk, RVK_MAX_SIZE};
+
+// Create self-revocation
+let rvk_coz = revoke(&key, None)?;
+
+// Check revocation validity
+assert!(is_valid_rvk(1623132000));
+```
+
+## Specification
+
+See the [Coz Specification](Coz/README.md) for full details.
 
 ## Related Projects
 

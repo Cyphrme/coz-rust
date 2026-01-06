@@ -152,8 +152,58 @@ fn cmd_sign(_coz: CozInput, _key: KeyInput) -> Result<()> {
     todo!("sign coz")
 }
 
-fn cmd_signpay(_pay: PayInput, _key: KeyInput) -> Result<()> {
-    todo!("sign payload")
+/// Sign a payload and return a Coz message.
+fn cmd_signpay(pay: PayInput, key: KeyInput) -> Result<()> {
+    use anyhow::Context;
+
+    let pay_json = pay.load()?;
+    let key_json = key.load()?;
+
+    // Extract key fields
+    let alg = key_json
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .context("key missing 'alg' field")?;
+    let prv_b64 = key_json
+        .get("prv")
+        .and_then(|v| v.as_str())
+        .context("key missing 'prv' field")?;
+    let pub_b64 = key_json
+        .get("pub")
+        .and_then(|v| v.as_str())
+        .context("key missing 'pub' field")?;
+    let tmb_b64 = key_json
+        .get("tmb")
+        .and_then(|v| v.as_str())
+        .context("key missing 'tmb' field")?;
+
+    let prv_bytes = Base64UrlUnpadded::decode_vec(prv_b64).context("invalid base64 in 'prv'")?;
+    let pub_bytes = Base64UrlUnpadded::decode_vec(pub_b64).context("invalid base64 in 'pub'")?;
+
+    // Augment pay with alg and tmb
+    let mut pay_obj = pay_json
+        .as_object()
+        .context("pay must be a JSON object")?
+        .clone();
+    pay_obj.insert("alg".to_string(), serde_json::json!(alg));
+    pay_obj.insert("tmb".to_string(), serde_json::json!(tmb_b64));
+
+    // Serialize the augmented pay
+    let augmented_pay = serde_json::to_vec(&pay_obj)?;
+
+    // Sign
+    let (sig, _cad) = coz_rs::sign_json(&augmented_pay, alg, &prv_bytes, &pub_bytes)
+        .with_context(|| format!("failed to sign with algorithm: {alg}"))?;
+
+    // Output Coz JSON
+    let sig_b64 = Base64UrlUnpadded::encode_string(&sig);
+    println!(
+        r#"{{"pay":{},"sig":"{}"}}"#,
+        serde_json::to_string(&pay_obj)?,
+        sig_b64
+    );
+
+    Ok(())
 }
 
 /// Verify a Coz message signature.

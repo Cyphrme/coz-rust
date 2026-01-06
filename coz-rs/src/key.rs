@@ -67,6 +67,7 @@ pub mod ops {
         fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner;
         fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner;
         fn verifying_key_from_bytes(bytes: &[u8]) -> Option<Self::VerifyingKeyInner>;
+        fn signing_key_from_bytes(bytes: &[u8]) -> Option<Self::SigningKeyInner>;
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8>;
         fn private_key_bytes(sk: &Self::SigningKeyInner) -> Vec<u8>;
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8>;
@@ -91,6 +92,10 @@ pub mod ops {
             let mut full = vec![0x04];
             full.extend_from_slice(bytes);
             p256::ecdsa::VerifyingKey::from_sec1_bytes(&full).ok()
+        }
+
+        fn signing_key_from_bytes(bytes: &[u8]) -> Option<Self::SigningKeyInner> {
+            p256::ecdsa::SigningKey::from_slice(bytes).ok()
         }
 
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
@@ -142,6 +147,10 @@ pub mod ops {
             p384::ecdsa::VerifyingKey::from_sec1_bytes(&full).ok()
         }
 
+        fn signing_key_from_bytes(bytes: &[u8]) -> Option<Self::SigningKeyInner> {
+            p384::ecdsa::SigningKey::from_slice(bytes).ok()
+        }
+
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
             let point = vk.to_encoded_point(false);
             point.as_bytes()[1..].to_vec()
@@ -191,6 +200,10 @@ pub mod ops {
             p521::ecdsa::VerifyingKey::from_sec1_bytes(&full).ok()
         }
 
+        fn signing_key_from_bytes(bytes: &[u8]) -> Option<Self::SigningKeyInner> {
+            p521::ecdsa::SigningKey::from_slice(bytes).ok()
+        }
+
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
             let point = vk.to_encoded_point(false);
             point.as_bytes()[1..].to_vec()
@@ -237,6 +250,11 @@ pub mod ops {
         fn verifying_key_from_bytes(bytes: &[u8]) -> Option<Self::VerifyingKeyInner> {
             let bytes: [u8; 32] = bytes.try_into().ok()?;
             ed25519_dalek::VerifyingKey::from_bytes(&bytes).ok()
+        }
+
+        fn signing_key_from_bytes(bytes: &[u8]) -> Option<Self::SigningKeyInner> {
+            let bytes: [u8; 32] = bytes.try_into().ok()?;
+            Some(ed25519_dalek::SigningKey::from_bytes(&bytes))
         }
 
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
@@ -451,6 +469,29 @@ where
         pub_bytes: pub_bytes.to_vec(),
         thumbprint,
         _marker: std::marker::PhantomData,
+    })
+}
+
+/// Create a signing key from raw private key bytes.
+///
+/// This is used internally for runtime signing.
+pub(crate) fn signing_key_from_bytes<A>(prv_bytes: &[u8]) -> Option<SigningKey<A>>
+where
+    A: Algorithm + KeyOps,
+{
+    let inner = A::signing_key_from_bytes(prv_bytes)?;
+    let vk_inner = A::verifying_key_from_signing(&inner);
+    let pub_bytes = A::public_key_bytes(&vk_inner);
+    let thumbprint = compute_thumbprint::<A>(&pub_bytes);
+
+    Some(SigningKey {
+        inner,
+        verifying_key: VerifyingKey {
+            inner: vk_inner,
+            pub_bytes,
+            thumbprint,
+            _marker: std::marker::PhantomData,
+        },
     })
 }
 

@@ -348,6 +348,52 @@ where
     crate::key::verifying_key_from_bytes::<A>(pub_bytes)
 }
 
+/// Sign a payload and return the signature bytes and cad.
+///
+/// This function enables signing without needing compile-time algorithm types.
+/// Returns `None` for unknown algorithms or signing failures.
+///
+/// # Arguments
+///
+/// * `pay_json` - The raw JSON bytes of the pay object
+/// * `alg` - The algorithm name (e.g., "ES256", "Ed25519")
+/// * `prv_bytes` - The private key bytes
+/// * `pub_bytes` - The public key bytes (needed for cad computation)
+///
+/// # Returns
+///
+/// A tuple of (signature_bytes, cad_bytes) on success.
+pub fn sign_json(
+    pay_json: &[u8],
+    alg: &str,
+    prv_bytes: &[u8],
+    pub_bytes: &[u8],
+) -> Option<(Vec<u8>, Cad)> {
+    use crate::alg::{ES256, ES384, ES512, Ed25519};
+
+    match alg {
+        "ES256" => sign_with_alg::<ES256>(pay_json, prv_bytes, pub_bytes),
+        "ES384" => sign_with_alg::<ES384>(pay_json, prv_bytes, pub_bytes),
+        "ES512" => sign_with_alg::<ES512>(pay_json, prv_bytes, pub_bytes),
+        "Ed25519" => sign_with_alg::<Ed25519>(pay_json, prv_bytes, pub_bytes),
+        _ => None,
+    }
+}
+
+fn sign_with_alg<A>(pay_json: &[u8], prv_bytes: &[u8], _pub_bytes: &[u8]) -> Option<(Vec<u8>, Cad)>
+where
+    A: Algorithm + crate::key::ops::KeyOps,
+{
+    // Compute canonical hash of pay
+    let cad = canonical_hash::<A>(pay_json, None).ok()?;
+
+    // Create signing key from private bytes and sign
+    let sk = crate::key::signing_key_from_bytes::<A>(prv_bytes)?;
+    let sig = sk.sign(cad.as_bytes());
+
+    Some((sig, cad))
+}
+
 // ============================================================================
 // Tests
 // ============================================================================

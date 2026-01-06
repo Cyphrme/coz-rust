@@ -157,6 +157,12 @@ impl PayBuilder {
         self
     }
 
+    /// Set the revocation timestamp.
+    pub fn rvk(mut self, rvk: i64) -> Self {
+        self.pay.rvk = Some(rvk);
+        self
+    }
+
     /// Set a custom field.
     pub fn field(mut self, key: impl Into<String>, value: Value) -> Self {
         self.pay.extra.insert(key.into(), value);

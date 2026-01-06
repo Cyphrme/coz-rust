@@ -55,6 +55,12 @@ impl std::fmt::Display for Cad {
     }
 }
 
+impl AsRef<[u8]> for Cad {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 // ============================================================================
 // Czd - Coz Digest
 // ============================================================================
@@ -96,6 +102,12 @@ impl Czd {
 impl std::fmt::Display for Czd {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_b64())
+    }
+}
+
+impl AsRef<[u8]> for Czd {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
     }
 }
 

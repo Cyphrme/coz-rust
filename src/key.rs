@@ -47,6 +47,12 @@ impl std::fmt::Display for Thumbprint {
     }
 }
 
+impl AsRef<[u8]> for Thumbprint {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 // ============================================================================
 // Internal key operations module (keeps KeyOps private)
 // ============================================================================

@@ -48,170 +48,157 @@ impl std::fmt::Display for Thumbprint {
 }
 
 // ============================================================================
-// Key traits for algorithm-specific operations
+// Internal key operations module (keeps KeyOps private)
 // ============================================================================
 
-/// Internal trait for algorithm-specific key operations.
-///
-/// This trait is implemented for each algorithm to provide the concrete
-/// RustCrypto types and operations.
-pub(crate) trait KeyOps: Algorithm {
-    type SigningKeyInner;
-    type VerifyingKeyInner;
+mod ops {
+    use super::*;
 
-    fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner;
-    fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner;
-    fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8>;
-    fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8>;
-    fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool;
+    /// Internal trait for algorithm-specific key operations.
+    pub trait KeyOps: Algorithm {
+        type SigningKeyInner;
+        type VerifyingKeyInner;
+
+        fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner;
+        fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner;
+        fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8>;
+        fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8>;
+        fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool;
+    }
+
+    // ES256
+    impl KeyOps for ES256 {
+        type SigningKeyInner = p256::ecdsa::SigningKey;
+        type VerifyingKeyInner = p256::ecdsa::VerifyingKey;
+
+        fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner {
+            p256::ecdsa::SigningKey::random(rng)
+        }
+
+        fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner {
+            *sk.verifying_key()
+        }
+
+        fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
+            let point = vk.to_encoded_point(false);
+            point.as_bytes()[1..].to_vec()
+        }
+
+        fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
+            use p256::ecdsa::signature::Signer;
+            let sig: p256::ecdsa::Signature = sk.sign(digest);
+            sig.to_bytes().to_vec()
+        }
+
+        fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
+            use p256::ecdsa::signature::Verifier;
+            let Ok(sig) = p256::ecdsa::Signature::from_slice(sig) else {
+                return false;
+            };
+            vk.verify(digest, &sig).is_ok()
+        }
+    }
+
+    // ES384
+    impl KeyOps for ES384 {
+        type SigningKeyInner = p384::ecdsa::SigningKey;
+        type VerifyingKeyInner = p384::ecdsa::VerifyingKey;
+
+        fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner {
+            p384::ecdsa::SigningKey::random(rng)
+        }
+
+        fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner {
+            *sk.verifying_key()
+        }
+
+        fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
+            let point = vk.to_encoded_point(false);
+            point.as_bytes()[1..].to_vec()
+        }
+
+        fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
+            use p384::ecdsa::signature::Signer;
+            let sig: p384::ecdsa::Signature = sk.sign(digest);
+            sig.to_bytes().to_vec()
+        }
+
+        fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
+            use p384::ecdsa::signature::Verifier;
+            let Ok(sig) = p384::ecdsa::Signature::from_slice(sig) else {
+                return false;
+            };
+            vk.verify(digest, &sig).is_ok()
+        }
+    }
+
+    // ES512
+    impl KeyOps for ES512 {
+        type SigningKeyInner = p521::ecdsa::SigningKey;
+        type VerifyingKeyInner = p521::ecdsa::VerifyingKey;
+
+        fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner {
+            p521::ecdsa::SigningKey::random(rng)
+        }
+
+        fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner {
+            p521::ecdsa::VerifyingKey::from(sk)
+        }
+
+        fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
+            let point = vk.to_encoded_point(false);
+            point.as_bytes()[1..].to_vec()
+        }
+
+        fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
+            use p521::ecdsa::signature::Signer;
+            let sig: p521::ecdsa::Signature = sk.sign(digest);
+            sig.to_bytes().to_vec()
+        }
+
+        fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
+            use p521::ecdsa::signature::Verifier;
+            let Ok(sig) = p521::ecdsa::Signature::from_slice(sig) else {
+                return false;
+            };
+            vk.verify(digest, &sig).is_ok()
+        }
+    }
+
+    // Ed25519
+    impl KeyOps for Ed25519 {
+        type SigningKeyInner = ed25519_dalek::SigningKey;
+        type VerifyingKeyInner = ed25519_dalek::VerifyingKey;
+
+        fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner {
+            ed25519_dalek::SigningKey::generate(rng)
+        }
+
+        fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner {
+            sk.verifying_key()
+        }
+
+        fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
+            vk.as_bytes().to_vec()
+        }
+
+        fn sign(sk: &Self::SigningKeyInner, msg: &[u8]) -> Vec<u8> {
+            use ed25519_dalek::Signer;
+            let sig = sk.sign(msg);
+            sig.to_bytes().to_vec()
+        }
+
+        fn verify(vk: &Self::VerifyingKeyInner, msg: &[u8], sig: &[u8]) -> bool {
+            use ed25519_dalek::Verifier;
+            let Ok(sig) = ed25519_dalek::Signature::from_slice(sig) else {
+                return false;
+            };
+            vk.verify(msg, &sig).is_ok()
+        }
+    }
 }
 
-// ============================================================================
-// ES256 KeyOps
-// ============================================================================
-
-impl KeyOps for ES256 {
-    type SigningKeyInner = p256::ecdsa::SigningKey;
-    type VerifyingKeyInner = p256::ecdsa::VerifyingKey;
-
-    fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner {
-        p256::ecdsa::SigningKey::random(rng)
-    }
-
-    fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner {
-        *sk.verifying_key()
-    }
-
-    fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
-        use p256::elliptic_curve::sec1::ToEncodedPoint;
-        let point = vk.to_encoded_point(false);
-        // Skip the 0x04 prefix for uncompressed point
-        point.as_bytes()[1..].to_vec()
-    }
-
-    fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
-        use p256::ecdsa::signature::Signer;
-        let sig: p256::ecdsa::Signature = sk.sign(digest);
-        sig.to_bytes().to_vec()
-    }
-
-    fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
-        use p256::ecdsa::signature::Verifier;
-        let Ok(sig) = p256::ecdsa::Signature::from_slice(sig) else {
-            return false;
-        };
-        vk.verify(digest, &sig).is_ok()
-    }
-}
-
-// ============================================================================
-// ES384 KeyOps
-// ============================================================================
-
-impl KeyOps for ES384 {
-    type SigningKeyInner = p384::ecdsa::SigningKey;
-    type VerifyingKeyInner = p384::ecdsa::VerifyingKey;
-
-    fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner {
-        p384::ecdsa::SigningKey::random(rng)
-    }
-
-    fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner {
-        *sk.verifying_key()
-    }
-
-    fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
-        use p384::elliptic_curve::sec1::ToEncodedPoint;
-        let point = vk.to_encoded_point(false);
-        point.as_bytes()[1..].to_vec()
-    }
-
-    fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
-        use p384::ecdsa::signature::Signer;
-        let sig: p384::ecdsa::Signature = sk.sign(digest);
-        sig.to_bytes().to_vec()
-    }
-
-    fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
-        use p384::ecdsa::signature::Verifier;
-        let Ok(sig) = p384::ecdsa::Signature::from_slice(sig) else {
-            return false;
-        };
-        vk.verify(digest, &sig).is_ok()
-    }
-}
-
-// ============================================================================
-// ES512 KeyOps
-// ============================================================================
-
-impl KeyOps for ES512 {
-    type SigningKeyInner = p521::ecdsa::SigningKey;
-    type VerifyingKeyInner = p521::ecdsa::VerifyingKey;
-
-    fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner {
-        p521::ecdsa::SigningKey::random(rng)
-    }
-
-    fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner {
-        p521::ecdsa::VerifyingKey::from(sk)
-    }
-
-    fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
-        use p521::elliptic_curve::sec1::ToEncodedPoint;
-        let point = vk.to_encoded_point(false);
-        point.as_bytes()[1..].to_vec()
-    }
-
-    fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
-        use p521::ecdsa::signature::Signer;
-        let sig: p521::ecdsa::Signature = sk.sign(digest);
-        sig.to_bytes().to_vec()
-    }
-
-    fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
-        use p521::ecdsa::signature::Verifier;
-        let Ok(sig) = p521::ecdsa::Signature::from_slice(sig) else {
-            return false;
-        };
-        vk.verify(digest, &sig).is_ok()
-    }
-}
-
-// ============================================================================
-// Ed25519 KeyOps
-// ============================================================================
-
-impl KeyOps for Ed25519 {
-    type SigningKeyInner = ed25519_dalek::SigningKey;
-    type VerifyingKeyInner = ed25519_dalek::VerifyingKey;
-
-    fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner {
-        ed25519_dalek::SigningKey::generate(rng)
-    }
-
-    fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner {
-        sk.verifying_key()
-    }
-
-    fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
-        vk.as_bytes().to_vec()
-    }
-
-    fn sign(sk: &Self::SigningKeyInner, msg: &[u8]) -> Vec<u8> {
-        use ed25519_dalek::Signer;
-        let sig = sk.sign(msg);
-        sig.to_bytes().to_vec()
-    }
-
-    fn verify(vk: &Self::VerifyingKeyInner, msg: &[u8], sig: &[u8]) -> bool {
-        use ed25519_dalek::Verifier;
-        let Ok(sig) = ed25519_dalek::Signature::from_slice(sig) else {
-            return false;
-        };
-        vk.verify(msg, &sig).is_ok()
-    }
-}
+use ops::KeyOps;
 
 // ============================================================================
 // SigningKey
@@ -220,12 +207,17 @@ impl KeyOps for Ed25519 {
 /// A signing key that can sign messages.
 ///
 /// This wraps the algorithm-specific signing key and caches the thumbprint.
-pub struct SigningKey<A: KeyOps> {
+/// The type parameter `A` must be one of the supported algorithms:
+/// [`ES256`], [`ES384`], [`ES512`], or [`Ed25519`].
+pub struct SigningKey<A: Algorithm>
+where
+    A: KeyOps,
+{
     inner: A::SigningKeyInner,
     verifying_key: VerifyingKey<A>,
 }
 
-impl<A: KeyOps> SigningKey<A> {
+impl<A: Algorithm + KeyOps> SigningKey<A> {
     /// Generate a new random signing key.
     pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let inner = A::generate_signing_key(rng);
@@ -272,14 +264,17 @@ impl<A: KeyOps> SigningKey<A> {
 /// A verifying key that can verify signatures.
 ///
 /// This is the public-only version of a key, extracted from a [`SigningKey`].
-pub struct VerifyingKey<A: KeyOps> {
+pub struct VerifyingKey<A: Algorithm>
+where
+    A: KeyOps,
+{
     inner: A::VerifyingKeyInner,
     pub_bytes: Vec<u8>,
     thumbprint: Thumbprint,
     _marker: PhantomData<A>,
 }
 
-impl<A: KeyOps> VerifyingKey<A> {
+impl<A: Algorithm + KeyOps> VerifyingKey<A> {
     /// Get the thumbprint.
     pub fn thumbprint(&self) -> &Thumbprint {
         &self.thumbprint
@@ -301,7 +296,7 @@ impl<A: KeyOps> VerifyingKey<A> {
     }
 }
 
-impl<A: KeyOps> Clone for VerifyingKey<A>
+impl<A: Algorithm + KeyOps> Clone for VerifyingKey<A>
 where
     A::VerifyingKeyInner: Clone,
 {
@@ -320,8 +315,6 @@ where
 // ============================================================================
 
 /// Compute the thumbprint for a key.
-///
-/// Thumbprint is SHA-256 of the canonical JSON: `{"alg":"...","pub":"..."}`
 fn compute_thumbprint<A: Algorithm>(pub_bytes: &[u8]) -> Thumbprint {
     use base64ct::{Base64UrlUnpadded, Encoding};
     use sha2::Sha256;

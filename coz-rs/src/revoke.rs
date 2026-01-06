@@ -76,6 +76,70 @@ pub fn is_valid_rvk(rvk: i64) -> bool {
     rvk > 0 && rvk <= MAX_SAFE_INTEGER
 }
 
+/// Create a revocation message with runtime algorithm dispatch.
+///
+/// This is useful for CLI tools that parse key JSON at runtime.
+///
+/// # Arguments
+///
+/// * `alg` - Algorithm name (e.g., "ES256", "Ed25519")
+/// * `prv_bytes` - Private key bytes
+/// * `tmb` - Key thumbprint string (for inclusion in pay)
+/// * `now` - Optional Unix timestamp. If `None`, uses current time.
+///
+/// # Returns
+///
+/// A tuple of (pay_json, signature_bytes) on success.
+pub fn revoke_json(
+    alg: &str,
+    prv_bytes: &[u8],
+    tmb: &str,
+    now: Option<i64>,
+) -> Option<(Vec<u8>, Vec<u8>)> {
+    use crate::alg::{ES256, ES384, ES512, Ed25519};
+
+    match alg {
+        "ES256" => revoke_with_alg::<ES256>(prv_bytes, tmb, now),
+        "ES384" => revoke_with_alg::<ES384>(prv_bytes, tmb, now),
+        "ES512" => revoke_with_alg::<ES512>(prv_bytes, tmb, now),
+        "Ed25519" => revoke_with_alg::<Ed25519>(prv_bytes, tmb, now),
+        _ => None,
+    }
+}
+
+fn revoke_with_alg<A>(prv_bytes: &[u8], tmb: &str, now: Option<i64>) -> Option<(Vec<u8>, Vec<u8>)>
+where
+    A: Algorithm + crate::key::ops::KeyOps,
+{
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let sk = crate::key::signing_key_from_bytes::<A>(prv_bytes)?;
+
+    let timestamp = match now {
+        Some(t) => t,
+        None => SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs() as i64,
+    };
+
+    if timestamp <= 0 || timestamp > MAX_SAFE_INTEGER {
+        return None;
+    }
+
+    // Build pay JSON with alg, now, rvk, tmb
+    let pay_json = serde_json::json!({
+        "alg": A::NAME,
+        "now": timestamp,
+        "rvk": timestamp,
+        "tmb": tmb
+    });
+    let pay_bytes = serde_json::to_vec(&pay_json).ok()?;
+
+    // Compute cad and sign
+    let cad = crate::canon::canonical_hash::<A>(&pay_bytes, None).ok()?;
+    let sig = sk.sign(cad.as_bytes());
+
+    Some((pay_bytes, sig))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

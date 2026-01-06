@@ -159,6 +159,36 @@ pub fn canonical_hash<A: Algorithm>(input: &[u8], fields: Option<&[&str]>) -> Re
     Ok(Cad::from_bytes(hash.to_vec()))
 }
 
+/// Compute the canonical hash with runtime algorithm dispatch.
+///
+/// Returns `None` for unknown algorithms.
+pub fn canonical_hash_for_alg(input: &[u8], alg: &str, fields: Option<&[&str]>) -> Option<Cad> {
+    use crate::alg::{ES256, ES384, ES512, Ed25519};
+
+    match alg {
+        "ES256" => canonical_hash::<ES256>(input, fields).ok(),
+        "ES384" => canonical_hash::<ES384>(input, fields).ok(),
+        "ES512" => canonical_hash::<ES512>(input, fields).ok(),
+        "Ed25519" => canonical_hash::<Ed25519>(input, fields).ok(),
+        _ => None,
+    }
+}
+
+/// Compute czd with runtime algorithm dispatch.
+///
+/// Returns `None` for unknown algorithms.
+pub fn czd_for_alg(cad: &Cad, sig: &[u8], alg: &str) -> Option<Czd> {
+    use crate::alg::{ES256, ES384, ES512, Ed25519};
+
+    match alg {
+        "ES256" => Some(Czd::compute::<ES256>(cad, sig)),
+        "ES384" => Some(Czd::compute::<ES384>(cad, sig)),
+        "ES512" => Some(Czd::compute::<ES512>(cad, sig)),
+        "Ed25519" => Some(Czd::compute::<Ed25519>(cad, sig)),
+        _ => None,
+    }
+}
+
 /// Compute a hash using SHA-256 (for thumbprints).
 pub fn hash_sha256(input: &[u8]) -> Vec<u8> {
     Sha256::digest(input).to_vec()

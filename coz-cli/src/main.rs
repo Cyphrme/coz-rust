@@ -243,10 +243,84 @@ fn cmd_verify(coz: CozInput, key: KeyInput) -> Result<()> {
     Ok(())
 }
 
-fn cmd_meta(_coz: CozInput) -> Result<()> {
-    todo!("compute meta")
+/// Compute and display metadata for a Coz message.
+fn cmd_meta(coz: CozInput) -> Result<()> {
+    use anyhow::Context;
+
+    let coz_json = coz.load()?;
+
+    // Extract pay and sig
+    let pay_value = coz_json.get("pay").context("coz missing 'pay' field")?;
+    let pay_json = serde_json::to_vec(pay_value)?;
+
+    let sig_b64 = coz_json
+        .get("sig")
+        .and_then(|v| v.as_str())
+        .context("coz missing 'sig' field")?;
+    let sig = Base64UrlUnpadded::decode_vec(sig_b64).context("invalid base64 in 'sig' field")?;
+
+    // Get algorithm from pay
+    let alg = pay_value
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .context("pay missing 'alg' field")?;
+
+    // Compute can (field names in order)
+    let can = coz_rs::canon(&pay_json).context("failed to extract canon")?;
+
+    // Compute cad
+    let cad = coz_rs::canonical_hash_for_alg(&pay_json, alg, None)
+        .with_context(|| format!("unsupported algorithm: {alg}"))?;
+
+    // Compute czd
+    let czd = coz_rs::czd_for_alg(&cad, &sig, alg)
+        .with_context(|| format!("unsupported algorithm: {alg}"))?;
+
+    // Output as JSON
+    println!(
+        r#"{{"can":{},"cad":"{}","czd":"{}"}}"#,
+        serde_json::to_string(&can)?,
+        cad.to_b64(),
+        czd.to_b64()
+    );
+
+    Ok(())
 }
 
-fn cmd_revoke(_key: KeyInput) -> Result<()> {
-    todo!("generate revoke")
+/// Generate a revocation message for a key.
+fn cmd_revoke(key: KeyInput) -> Result<()> {
+    use anyhow::Context;
+
+    let key_json = key.load()?;
+
+    // Extract key fields
+    let alg = key_json
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .context("key missing 'alg' field")?;
+    let prv_b64 = key_json
+        .get("prv")
+        .and_then(|v| v.as_str())
+        .context("key missing 'prv' field")?;
+    let tmb_b64 = key_json
+        .get("tmb")
+        .and_then(|v| v.as_str())
+        .context("key missing 'tmb' field")?;
+
+    let prv_bytes = Base64UrlUnpadded::decode_vec(prv_b64).context("invalid base64 in 'prv'")?;
+
+    // Generate revocation
+    let (pay_bytes, sig) = coz_rs::revoke_json(alg, &prv_bytes, tmb_b64, None)
+        .with_context(|| format!("failed to create revocation for algorithm: {alg}"))?;
+
+    // Output as Coz JSON
+    let pay: serde_json::Value = serde_json::from_slice(&pay_bytes)?;
+    let sig_b64 = Base64UrlUnpadded::encode_string(&sig);
+    println!(
+        r#"{{"pay":{},"sig":"{}"}}"#,
+        serde_json::to_string(&pay)?,
+        sig_b64
+    );
+
+    Ok(())
 }

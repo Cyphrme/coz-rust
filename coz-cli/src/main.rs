@@ -3,6 +3,7 @@
 mod input;
 
 use anyhow::Result;
+use base64ct::{Base64UrlUnpadded, Encoding};
 use clap::{Parser, Subcommand, ValueEnum};
 use input::{CozInput, KeyInput, PayInput};
 
@@ -90,13 +91,32 @@ fn main() -> Result<()> {
     }
 }
 
+/// Generate a new key and print as JSON.
 fn cmd_newkey(alg: Alg) -> Result<()> {
     match alg {
-        Alg::ES256 => todo!("ES256 key generation"),
-        Alg::ES384 => todo!("ES384 key generation"),
-        Alg::ES512 => todo!("ES512 key generation"),
-        Alg::Ed25519 => todo!("Ed25519 key generation"),
+        Alg::ES256 => print_key(coz_rs::SigningKey::<coz_rs::ES256>::generate()),
+        Alg::ES384 => print_key(coz_rs::SigningKey::<coz_rs::ES384>::generate()),
+        Alg::ES512 => print_key(coz_rs::SigningKey::<coz_rs::ES512>::generate()),
+        Alg::Ed25519 => print_key(coz_rs::SigningKey::<coz_rs::Ed25519>::generate()),
     }
+    Ok(())
+}
+
+/// Print a signing key as Coz JSON format.
+fn print_key<A>(key: coz_rs::SigningKey<A>)
+where
+    A: coz_rs::Algorithm + coz_rs::key::ops::KeyOps,
+{
+    let alg = key.algorithm();
+    let prv = Base64UrlUnpadded::encode_string(&key.private_key_bytes());
+    let pub_key = Base64UrlUnpadded::encode_string(key.verifying_key().public_key_bytes());
+    let tmb = key.thumbprint().to_b64();
+
+    // Output in Coz JSON key format (field order: alg, prv, pub, tmb)
+    println!(
+        r#"{{"alg":"{}","prv":"{}","pub":"{}","tmb":"{}"}}"#,
+        alg, prv, pub_key, tmb
+    );
 }
 
 fn cmd_tmb(_key: KeyInput) -> Result<()> {

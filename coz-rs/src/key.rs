@@ -56,7 +56,7 @@ impl AsRef<[u8]> for Thumbprint {
 // Internal key operations module (keeps KeyOps private)
 // ============================================================================
 
-pub(crate) mod ops {
+pub mod ops {
     use super::*;
 
     /// Internal trait for algorithm-specific key operations.
@@ -67,6 +67,7 @@ pub(crate) mod ops {
         fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner;
         fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner;
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8>;
+        fn private_key_bytes(sk: &Self::SigningKeyInner) -> Vec<u8>;
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8>;
         fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool;
     }
@@ -87,6 +88,10 @@ pub(crate) mod ops {
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
             let point = vk.to_encoded_point(false);
             point.as_bytes()[1..].to_vec()
+        }
+
+        fn private_key_bytes(sk: &Self::SigningKeyInner) -> Vec<u8> {
+            sk.to_bytes().to_vec()
         }
 
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
@@ -128,6 +133,10 @@ pub(crate) mod ops {
             point.as_bytes()[1..].to_vec()
         }
 
+        fn private_key_bytes(sk: &Self::SigningKeyInner) -> Vec<u8> {
+            sk.to_bytes().to_vec()
+        }
+
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
             use p384::ecdsa::signature::Signer;
             let sig: p384::ecdsa::Signature = sk.sign(digest);
@@ -167,6 +176,10 @@ pub(crate) mod ops {
             point.as_bytes()[1..].to_vec()
         }
 
+        fn private_key_bytes(sk: &Self::SigningKeyInner) -> Vec<u8> {
+            sk.to_bytes().to_vec()
+        }
+
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
             use p521::ecdsa::signature::Signer;
             let sig: p521::ecdsa::Signature = sk.sign(digest);
@@ -203,6 +216,10 @@ pub(crate) mod ops {
 
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8> {
             vk.as_bytes().to_vec()
+        }
+
+        fn private_key_bytes(sk: &Self::SigningKeyInner) -> Vec<u8> {
+            sk.to_bytes().to_vec()
         }
 
         fn sign(sk: &Self::SigningKeyInner, msg: &[u8]) -> Vec<u8> {
@@ -291,6 +308,13 @@ impl<A: Algorithm + KeyOps> SigningKey<A> {
     /// Get the algorithm name.
     pub fn algorithm(&self) -> &'static str {
         A::NAME
+    }
+
+    /// Get the private key bytes.
+    ///
+    /// For ECDSA keys this is the scalar value. For Ed25519 this is the seed.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        A::private_key_bytes(&self.inner)
     }
 }
 

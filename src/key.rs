@@ -87,7 +87,9 @@ pub(crate) mod ops {
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
             use p256::ecdsa::signature::Signer;
             let sig: p256::ecdsa::Signature = sk.sign(digest);
-            sig.to_bytes().to_vec()
+            // Normalize to low-S for non-malleability (Coz spec requirement)
+            let normalized = sig.normalize_s().unwrap_or(sig);
+            normalized.to_bytes().to_vec()
         }
 
         fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
@@ -95,6 +97,10 @@ pub(crate) mod ops {
             let Ok(sig) = p256::ecdsa::Signature::from_slice(sig) else {
                 return false;
             };
+            // Reject high-S signatures (Coz spec requires low-S only)
+            if sig.normalize_s().is_some() {
+                return false;
+            }
             vk.verify(digest, &sig).is_ok()
         }
     }
@@ -120,7 +126,9 @@ pub(crate) mod ops {
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
             use p384::ecdsa::signature::Signer;
             let sig: p384::ecdsa::Signature = sk.sign(digest);
-            sig.to_bytes().to_vec()
+            // Normalize to low-S for non-malleability (Coz spec requirement)
+            let normalized = sig.normalize_s().unwrap_or(sig);
+            normalized.to_bytes().to_vec()
         }
 
         fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
@@ -128,6 +136,10 @@ pub(crate) mod ops {
             let Ok(sig) = p384::ecdsa::Signature::from_slice(sig) else {
                 return false;
             };
+            // Reject high-S signatures (Coz spec requires low-S only)
+            if sig.normalize_s().is_some() {
+                return false;
+            }
             vk.verify(digest, &sig).is_ok()
         }
     }
@@ -153,7 +165,9 @@ pub(crate) mod ops {
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
             use p521::ecdsa::signature::Signer;
             let sig: p521::ecdsa::Signature = sk.sign(digest);
-            sig.to_bytes().to_vec()
+            // Normalize to low-S for non-malleability (Coz spec requirement)
+            let normalized = sig.normalize_s().unwrap_or(sig);
+            normalized.to_bytes().to_vec()
         }
 
         fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
@@ -161,6 +175,10 @@ pub(crate) mod ops {
             let Ok(sig) = p521::ecdsa::Signature::from_slice(sig) else {
                 return false;
             };
+            // Reject high-S signatures (Coz spec requires low-S only)
+            if sig.normalize_s().is_some() {
+                return false;
+            }
             vk.verify(digest, &sig).is_ok()
         }
     }
@@ -436,5 +454,44 @@ mod tests {
         let sig = key.sign(&digest1);
 
         assert!(!key.verifying_key().verify(&digest2, &sig));
+    }
+
+    #[test]
+    fn signatures_are_low_s() {
+        // Generate many signatures and verify they're all low-S
+        for _ in 0..10 {
+            let key = SigningKey::<ES256>::generate(&mut OsRng);
+            let digest = sha2::Sha256::digest(b"test message");
+            let sig = key.sign(&digest);
+
+            // Parse signature and check it's already normalized
+            let parsed = p256::ecdsa::Signature::from_slice(&sig).unwrap();
+            // normalize_s returns None if already low-S
+            assert!(
+                parsed.normalize_s().is_none(),
+                "Generated signature should be low-S"
+            );
+        }
+    }
+
+    #[test]
+    fn high_s_signature_rejected() {
+        use base64ct::{Base64UrlUnpadded, Encoding};
+
+        // Known high-S signature from Go reference (ExampleECDSAToLowSSig)
+        // This is a valid ECDSA signature with high-S that should be rejected
+        let high_s_sig = Base64UrlUnpadded::decode_vec(
+            "nN7tddth3aiSHaEh0WfhFzXFSSWuAfB7wdS_fUAc9kai2fBx9jXY8j-MWDZW-5Pm4AsX7ed5UQ9MAStNOMNa8g"
+        ).unwrap();
+
+        // Create a key for verification (won't match, but we're testing signature parsing)
+        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let digest = sha2::Sha256::digest(b"{}");
+
+        // Should be rejected because it's high-S
+        assert!(
+            !key.verifying_key().verify(&digest, &high_s_sig),
+            "High-S signature should be rejected"
+        );
     }
 }

@@ -17,7 +17,9 @@
 #![warn(missing_docs)]
 #![warn(rust_2018_idioms)]
 
+pub mod alg;
 pub mod b64;
 pub mod error;
 
+pub use alg::{Algorithm, ES256, ES384, ES512, Ed25519};
 pub use error::{Error, Result};

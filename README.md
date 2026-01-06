@@ -140,6 +140,61 @@ let rvk_coz = revoke(&key, None)?;
 assert!(is_valid_rvk(1623132000));
 ```
 
+## CLI
+
+The `coz-cli` crate provides a command-line interface for Coz operations.
+
+### Installation
+
+```sh
+cargo install coz-cli
+```
+
+### Commands
+
+```sh
+# Generate a new key (default: Ed25519)
+coz newkey
+coz newkey es256
+
+# Calculate thumbprint
+coz tmb '{"alg":"ES256","pub":"..."}'
+coz tmb key.json
+
+# Sign a payload
+coz signpay '{"msg":"Hello"}' key.json
+
+# Re-sign with different key
+coz sign message.json newkey.json
+
+# Verify signature
+coz verify message.json key.json
+
+# Compute metadata (cad, czd, can)
+coz meta message.json
+
+# Generate revocation
+coz revoke key.json
+```
+
+### Example Workflow
+
+```sh
+# Generate key and save to file
+coz newkey > key.json
+
+# Sign a message
+coz signpay '{"msg":"Hello, Coz!","typ":"example"}' key.json > msg.json
+
+# Verify the signature
+coz verify msg.json key.json
+# Output: true
+
+# View metadata
+coz meta msg.json
+# Output: {"can":["alg","msg","tmb","typ"],"cad":"...","czd":"..."}
+```
+
 ## Specification
 
 See the [Coz Specification](Coz/README.md) for full details.
@@ -148,7 +203,7 @@ See the [Coz Specification](Coz/README.md) for full details.
 
 - [Coz (Go)](https://github.com/Cyphrme/Coz) - Reference implementation
 - [CozJS](https://github.com/Cyphrme/CozJS) - JavaScript implementation
-- [Coz CLI](https://github.com/Cyphrme/CozeCLI) - Command-line tool
+- [coz-cli](coz-cli/) - Rust command-line tool (in this repo)
 
 ## License
 

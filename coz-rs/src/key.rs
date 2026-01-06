@@ -53,24 +53,39 @@ impl AsRef<[u8]> for Thumbprint {
 }
 
 // ============================================================================
-// Internal key operations module (keeps KeyOps private)
-// ============================================================================
-
+/// Algorithm-specific key operations.
+///
+/// This module provides the internal trait used for algorithm dispatch.
+/// It is public to allow downstream crates to specify trait bounds.
 pub mod ops {
     use super::*;
 
-    /// Internal trait for algorithm-specific key operations.
+    /// Trait for algorithm-specific key operations.
+    ///
+    /// This trait is implemented by each supported algorithm type
+    /// ([`ES256`], [`ES384`], [`ES512`], [`Ed25519`]) and provides
+    /// the underlying cryptographic operations.
     pub trait KeyOps: Algorithm {
+        /// The inner signing key type for this algorithm.
         type SigningKeyInner;
+        /// The inner verifying key type for this algorithm.
         type VerifyingKeyInner;
 
+        /// Generate a new signing key using the provided RNG.
         fn generate_signing_key<R: RngCore + CryptoRng>(rng: &mut R) -> Self::SigningKeyInner;
+        /// Extract the verifying key from a signing key.
         fn verifying_key_from_signing(sk: &Self::SigningKeyInner) -> Self::VerifyingKeyInner;
+        /// Reconstruct a verifying key from raw public key bytes.
         fn verifying_key_from_bytes(bytes: &[u8]) -> Option<Self::VerifyingKeyInner>;
+        /// Reconstruct a signing key from raw private key bytes.
         fn signing_key_from_bytes(bytes: &[u8]) -> Option<Self::SigningKeyInner>;
+        /// Extract the raw public key bytes from a verifying key.
         fn public_key_bytes(vk: &Self::VerifyingKeyInner) -> Vec<u8>;
+        /// Extract the raw private key bytes from a signing key.
         fn private_key_bytes(sk: &Self::SigningKeyInner) -> Vec<u8>;
+        /// Sign a digest and return the signature bytes.
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8>;
+        /// Verify a signature over a digest.
         fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool;
     }
 

@@ -31,11 +31,6 @@ impl KeyInput {
             serde_json::from_str(&content).context("failed to parse key file as JSON")
         }
     }
-
-    /// Get the raw input string.
-    pub fn raw(&self) -> &str {
-        &self.0
-    }
 }
 
 /// Input that can be a JSON literal or file path (for Coz messages).
@@ -60,11 +55,6 @@ impl CozInput {
             serde_json::from_str(&content).context("failed to parse coz file as JSON")
         }
     }
-
-    /// Get the raw input string.
-    pub fn raw(&self) -> &str {
-        &self.0
-    }
 }
 
 /// Input that can be a JSON literal or file path (for Pay payloads).
@@ -88,10 +78,5 @@ impl PayInput {
             let content = std::fs::read_to_string(&self.0).context("failed to read pay file")?;
             serde_json::from_str(&content).context("failed to parse pay file as JSON")
         }
-    }
-
-    /// Get the raw input string.
-    pub fn raw(&self) -> &str {
-        &self.0
     }
 }

@@ -236,8 +236,22 @@ where
 }
 
 impl<A: Algorithm + KeyOps> SigningKey<A> {
-    /// Generate a new random signing key.
-    pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+    /// Generate a new random signing key using the system RNG.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use coz::{SigningKey, ES256};
+    /// let key = SigningKey::<ES256>::generate();
+    /// ```
+    pub fn generate() -> Self {
+        Self::generate_with_rng(&mut rand::rngs::OsRng)
+    }
+
+    /// Generate a new random signing key using a custom RNG.
+    ///
+    /// This is useful for deterministic testing with seeded RNGs.
+    pub fn generate_with_rng<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let inner = A::generate_signing_key(rng);
         let vk_inner = A::verifying_key_from_signing(&inner);
         let pub_bytes = A::public_key_bytes(&vk_inner);
@@ -350,13 +364,13 @@ fn compute_thumbprint<A: Algorithm>(pub_bytes: &[u8]) -> Thumbprint {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::OsRng;
+    use sha2::Digest;
 
     use super::*;
 
     #[test]
     fn es256_generate_and_sign() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         assert_eq!(key.algorithm(), "ES256");
         assert_eq!(key.thumbprint().as_bytes().len(), 32);
 
@@ -369,7 +383,7 @@ mod tests {
 
     #[test]
     fn es384_generate_and_sign() {
-        let key = SigningKey::<ES384>::generate(&mut OsRng);
+        let key = SigningKey::<ES384>::generate();
         assert_eq!(key.algorithm(), "ES384");
 
         let digest = sha2::Sha384::digest(b"test message");
@@ -381,7 +395,7 @@ mod tests {
 
     #[test]
     fn es512_generate_and_sign() {
-        let key = SigningKey::<ES512>::generate(&mut OsRng);
+        let key = SigningKey::<ES512>::generate();
         assert_eq!(key.algorithm(), "ES512");
 
         let digest = sha2::Sha512::digest(b"test message");
@@ -393,7 +407,7 @@ mod tests {
 
     #[test]
     fn ed25519_generate_and_sign() {
-        let key = SigningKey::<Ed25519>::generate(&mut OsRng);
+        let key = SigningKey::<Ed25519>::generate();
         assert_eq!(key.algorithm(), "Ed25519");
         assert_eq!(key.verifying_key().public_key_bytes().len(), 32);
 
@@ -407,8 +421,8 @@ mod tests {
 
     #[test]
     fn thumbprint_is_deterministic() {
-        let key1 = SigningKey::<ES256>::generate(&mut OsRng);
-        let key2 = SigningKey::<ES256>::generate(&mut OsRng);
+        let key1 = SigningKey::<ES256>::generate();
+        let key2 = SigningKey::<ES256>::generate();
 
         // Different keys should have different thumbprints
         assert_ne!(key1.thumbprint().as_bytes(), key2.thumbprint().as_bytes());
@@ -421,7 +435,7 @@ mod tests {
 
     #[test]
     fn thumbprint_format() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         let tmb = key.thumbprint().to_b64();
 
         // Should be 43 characters (32 bytes in base64 without padding)
@@ -435,7 +449,7 @@ mod tests {
 
     #[test]
     fn verify_wrong_signature_fails() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         let digest = sha2::Sha256::digest(b"test message");
         let sig = key.sign(&digest);
 
@@ -448,7 +462,7 @@ mod tests {
 
     #[test]
     fn verify_wrong_digest_fails() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         let digest1 = sha2::Sha256::digest(b"message 1");
         let digest2 = sha2::Sha256::digest(b"message 2");
         let sig = key.sign(&digest1);
@@ -460,7 +474,7 @@ mod tests {
     fn signatures_are_low_s() {
         // Generate many signatures and verify they're all low-S
         for _ in 0..10 {
-            let key = SigningKey::<ES256>::generate(&mut OsRng);
+            let key = SigningKey::<ES256>::generate();
             let digest = sha2::Sha256::digest(b"test message");
             let sig = key.sign(&digest);
 
@@ -485,7 +499,7 @@ mod tests {
         ).unwrap();
 
         // Create a key for verification (won't match, but we're testing signature parsing)
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         let digest = sha2::Sha256::digest(b"{}");
 
         // Should be rejected because it's high-S

@@ -78,14 +78,12 @@ pub fn is_valid_rvk(rvk: i64) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::OsRng;
-
     use super::*;
     use crate::alg::ES256;
 
     #[test]
     fn revoke_creates_valid_coz() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         let coz = revoke(&key, Some(1623132000)).unwrap();
 
         assert!(coz.verify(key.verifying_key()));
@@ -95,7 +93,7 @@ mod tests {
 
     #[test]
     fn revoke_with_current_time() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         let coz = revoke(&key, None).unwrap();
 
         assert!(coz.verify(key.verifying_key()));
@@ -105,7 +103,7 @@ mod tests {
 
     #[test]
     fn revoke_invalid_timestamp() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
 
         // Zero is invalid
         let result = revoke(&key, Some(0));

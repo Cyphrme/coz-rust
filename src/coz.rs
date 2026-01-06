@@ -296,8 +296,6 @@ impl<A: Algorithm + crate::key::ops::KeyOps> Serialize for Coz<A> {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::OsRng;
-
     use super::*;
     use crate::alg::ES256;
 
@@ -334,7 +332,7 @@ mod tests {
 
     #[test]
     fn coz_sign_and_verify() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         let coz = PayBuilder::new()
             .msg("Hello, Coz!")
             .typ("example/hello")
@@ -350,8 +348,8 @@ mod tests {
 
     #[test]
     fn coz_verify_wrong_key_fails() {
-        let key1 = SigningKey::<ES256>::generate(&mut OsRng);
-        let key2 = SigningKey::<ES256>::generate(&mut OsRng);
+        let key1 = SigningKey::<ES256>::generate();
+        let key2 = SigningKey::<ES256>::generate();
 
         let coz = PayBuilder::new().msg("test").sign(&key1).unwrap();
 
@@ -360,7 +358,7 @@ mod tests {
 
     #[test]
     fn coz_serialize() {
-        let key = SigningKey::<ES256>::generate(&mut OsRng);
+        let key = SigningKey::<ES256>::generate();
         let coz = PayBuilder::new().msg("test").sign(&key).unwrap();
 
         let json = serde_json::to_string(&coz).unwrap();

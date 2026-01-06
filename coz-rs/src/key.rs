@@ -391,6 +391,26 @@ fn compute_thumbprint<A: Algorithm>(pub_bytes: &[u8]) -> Thumbprint {
     Thumbprint::from_bytes(hash.to_vec())
 }
 
+/// Compute a thumbprint from an algorithm name and public key bytes.
+///
+/// This is useful when you have parsed key JSON and need to compute
+/// or verify the thumbprint. Returns `None` for unknown algorithms.
+///
+/// # Example
+///
+/// ```ignore
+/// let tmb = compute_thumbprint_for_alg("ES256", &pub_bytes);
+/// ```
+pub fn compute_thumbprint_for_alg(alg: &str, pub_bytes: &[u8]) -> Option<Thumbprint> {
+    match alg {
+        "ES256" => Some(compute_thumbprint::<ES256>(pub_bytes)),
+        "ES384" => Some(compute_thumbprint::<ES384>(pub_bytes)),
+        "ES512" => Some(compute_thumbprint::<ES512>(pub_bytes)),
+        "Ed25519" => Some(compute_thumbprint::<Ed25519>(pub_bytes)),
+        _ => None,
+    }
+}
+
 // ============================================================================
 // Tests
 // ============================================================================

@@ -119,8 +119,33 @@ where
     );
 }
 
-fn cmd_tmb(_key: KeyInput) -> Result<()> {
-    todo!("thumbprint calculation")
+/// Calculate and print the thumbprint for a key.
+fn cmd_tmb(key: KeyInput) -> Result<()> {
+    use anyhow::Context;
+
+    let json = key.load()?;
+
+    // Extract alg and pub from key JSON
+    let alg = json
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .context("key missing 'alg' field")?;
+
+    let pub_b64 = json
+        .get("pub")
+        .and_then(|v| v.as_str())
+        .context("key missing 'pub' field")?;
+
+    // Decode public key bytes
+    let pub_bytes =
+        Base64UrlUnpadded::decode_vec(pub_b64).context("invalid base64 in 'pub' field")?;
+
+    // Compute thumbprint
+    let tmb = coz_rs::compute_thumbprint_for_alg(alg, &pub_bytes)
+        .with_context(|| format!("unsupported algorithm: {alg}"))?;
+
+    println!("{}", tmb.to_b64());
+    Ok(())
 }
 
 fn cmd_sign(_coz: CozInput, _key: KeyInput) -> Result<()> {

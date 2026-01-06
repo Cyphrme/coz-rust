@@ -1,7 +1,10 @@
 //! Coz CLI - Command line interface for Coz cryptographic JSON messaging.
 
+mod input;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
+use input::{CozInput, KeyInput, PayInput};
 
 /// CLI for Coz cryptographic JSON messaging
 #[derive(Parser)]
@@ -33,43 +36,43 @@ enum Command {
     /// Calculate thumbprint for a key
     Tmb {
         /// Key (JSON string or file path)
-        key: String,
+        key: KeyInput,
     },
 
     /// Sign a Coz message
     Sign {
         /// Coz message (JSON string or file path)
-        coz: String,
+        coz: CozInput,
         /// Private key (JSON string or file path)
-        key: String,
+        key: KeyInput,
     },
 
     /// Sign a payload, return Coz message
     Signpay {
         /// Payload (JSON string or file path)
-        pay: String,
+        pay: PayInput,
         /// Private key (JSON string or file path)
-        key: String,
+        key: KeyInput,
     },
 
     /// Verify a Coz signature
     Verify {
         /// Coz message (JSON string or file path)
-        coz: String,
+        coz: CozInput,
         /// Public key (JSON string or file path)
-        key: String,
+        key: KeyInput,
     },
 
     /// Compute metadata (cad, czd, can)
     Meta {
         /// Coz message (JSON string or file path)
-        coz: String,
+        coz: CozInput,
     },
 
     /// Generate a revocation message
     Revoke {
         /// Private key (JSON string or file path)
-        key: String,
+        key: KeyInput,
     },
 }
 
@@ -78,12 +81,12 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::Newkey { alg } => cmd_newkey(alg),
-        Command::Tmb { key } => cmd_tmb(&key),
-        Command::Sign { coz, key } => cmd_sign(&coz, &key),
-        Command::Signpay { pay, key } => cmd_signpay(&pay, &key),
-        Command::Verify { coz, key } => cmd_verify(&coz, &key),
-        Command::Meta { coz } => cmd_meta(&coz),
-        Command::Revoke { key } => cmd_revoke(&key),
+        Command::Tmb { key } => cmd_tmb(key),
+        Command::Sign { coz, key } => cmd_sign(coz, key),
+        Command::Signpay { pay, key } => cmd_signpay(pay, key),
+        Command::Verify { coz, key } => cmd_verify(coz, key),
+        Command::Meta { coz } => cmd_meta(coz),
+        Command::Revoke { key } => cmd_revoke(key),
     }
 }
 
@@ -96,26 +99,26 @@ fn cmd_newkey(alg: Alg) -> Result<()> {
     }
 }
 
-fn cmd_tmb(_key: &str) -> Result<()> {
+fn cmd_tmb(_key: KeyInput) -> Result<()> {
     todo!("thumbprint calculation")
 }
 
-fn cmd_sign(_coz: &str, _key: &str) -> Result<()> {
+fn cmd_sign(_coz: CozInput, _key: KeyInput) -> Result<()> {
     todo!("sign coz")
 }
 
-fn cmd_signpay(_pay: &str, _key: &str) -> Result<()> {
+fn cmd_signpay(_pay: PayInput, _key: KeyInput) -> Result<()> {
     todo!("sign payload")
 }
 
-fn cmd_verify(_coz: &str, _key: &str) -> Result<()> {
+fn cmd_verify(_coz: CozInput, _key: KeyInput) -> Result<()> {
     todo!("verify signature")
 }
 
-fn cmd_meta(_coz: &str) -> Result<()> {
+fn cmd_meta(_coz: CozInput) -> Result<()> {
     todo!("compute meta")
 }
 
-fn cmd_revoke(_key: &str) -> Result<()> {
+fn cmd_revoke(_key: KeyInput) -> Result<()> {
     todo!("generate revoke")
 }

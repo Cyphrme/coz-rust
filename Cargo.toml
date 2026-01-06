@@ -1,13 +1,14 @@
 [package]
-categories   = ["cryptography", "authentication"]
-description  = "Coz cryptographic JSON messaging specification"
-edition      = "2024"
-keywords     = ["cryptography", "json", "signature", "authentication"]
-license      = "BSD-3-Clause"
-name         = "coz-rs"
-repository   = "https://github.com/Cyphrme/coz-rust"
-rust-version = "1.85"
-version      = "0.1.0"
+categories    = ["cryptography", "authentication"]
+description   = "Coz cryptographic JSON messaging specification"
+documentation = "https://docs.rs/coz-rs"
+edition       = "2024"
+keywords      = ["cryptography", "json", "signature", "authentication"]
+license       = "BSD-3-Clause"
+name          = "coz-rs"
+repository    = "https://github.com/Cyphrme/coz-rust"
+rust-version  = "1.85"
+version       = "0.1.1"
 
 [dependencies]
 # Serialization
@@ -29,3 +30,6 @@ p521 = { version = "0.13", features = ["ecdsa", "serde"] }
 
 # Ed25519
 ed25519-dalek = { version = "2", features = ["serde", "rand_core"] }
+
+[package.metadata.docs.rs]
+all-features = true

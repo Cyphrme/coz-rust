@@ -22,6 +22,8 @@ pub mod b64;
 pub mod canon;
 pub mod coz;
 pub mod error;
+#[cfg(test)]
+mod golden;
 pub mod key;
 pub mod revoke;
 

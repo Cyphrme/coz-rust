@@ -118,9 +118,9 @@ pub fn canon(json: &[u8]) -> Result<Vec<String>> {
 pub fn canonical(input: &[u8], fields: Option<&[&str]>) -> Result<Vec<u8>> {
     match fields {
         None => {
-            // Just compact the JSON
-            let value: serde_json::Value = serde_json::from_slice(input)?;
-            Ok(serde_json::to_vec(&value)?)
+            // Compact the JSON while preserving field order
+            let map: IndexMap<String, serde_json::Value> = serde_json::from_slice(input)?;
+            Ok(serde_json::to_vec(&map)?)
         },
         Some(field_list) => {
             // Parse into map, extract only specified fields in order

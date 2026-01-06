@@ -1,12 +1,13 @@
 [package]
-categories  = ["cryptography", "authentication"]
-description = "Coz cryptographic JSON messaging specification"
-edition     = "2024"
-keywords    = ["cryptography", "json", "signature", "authentication"]
-license     = "BSD-3-Clause"
-name        = "coz"
-repository  = "https://github.com/Cyphrme/coz-rust"
-version     = "0.1.0"
+categories   = ["cryptography", "authentication"]
+description  = "Coz cryptographic JSON messaging specification"
+edition      = "2021"
+keywords     = ["cryptography", "json", "signature", "authentication"]
+license      = "BSD-3-Clause"
+name         = "coz"
+repository   = "https://github.com/Cyphrme/coz-rust"
+rust-version = "1.75"
+version      = "0.1.0"
 
 [dependencies]
 # Serialization

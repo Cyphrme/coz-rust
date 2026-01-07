@@ -1,3 +1,7 @@
 [workspace]
 members  = ["coz-cli", "coz-rs"]
 resolver = "2"
+
+[workspace.dependencies]
+base64ct   = { version = "1", features = ["alloc"] }
+serde_json = "1"

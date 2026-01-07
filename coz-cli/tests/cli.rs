@@ -4,13 +4,14 @@
 
 use std::io::Write;
 
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use tempfile::NamedTempFile;
 
 /// Get a Command for the coz binary.
 fn coz() -> Command {
-    Command::cargo_bin("coz").unwrap()
+    cargo_bin_cmd!("coz")
 }
 
 #[test]

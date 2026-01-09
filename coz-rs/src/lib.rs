@@ -28,14 +28,14 @@ pub mod key;
 pub mod revoke;
 
 pub use alg::{Algorithm, ES256, ES384, ES512, Ed25519};
+// Re-export crypto primitives for downstream crates
+pub use base64ct;
 pub use canon::{
     CZD_CANON, Cad, Czd, KEY_CANON, canon, canonical, canonical_hash, canonical_hash_for_alg,
     czd_for_alg,
 };
 pub use coz::{Coz, Pay, PayBuilder, sign_json, verify_json};
-// Re-export crypto primitives for downstream crates
-pub use digest;
 pub use error::{Error, Result};
 pub use key::{SigningKey, Thumbprint, VerifyingKey, compute_thumbprint_for_alg};
 pub use revoke::{RVK_MAX_SIZE, is_valid_rvk, revoke, revoke_json, validate_revoke_size};
-pub use sha2;
+pub use {digest, sha2};

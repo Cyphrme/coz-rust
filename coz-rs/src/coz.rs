@@ -44,6 +44,7 @@ pub struct Pay {
 
     /// Digest of external content.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     #[serde(with = "option_b64")]
     pub dig: Option<Vec<u8>>,
 
@@ -269,12 +270,31 @@ where
 // Serialization for Coz
 // ============================================================================
 
-/// JSON representation of a Coz message.
-#[derive(Serialize, Deserialize)]
-struct CozJson {
-    pay: Value,
+/// Algorithm-agnostic JSON representation of a Coz message.
+///
+/// This type is useful for storage and serialization when the algorithm
+/// type is not known at compile time. It contains the raw pay object
+/// and signature bytes.
+///
+/// # Example
+///
+/// ```ignore
+/// use coz::CozJson;
+///
+/// // Deserialize from JSON
+/// let coz: CozJson = serde_json::from_str(json)?;
+///
+/// // Access fields
+/// let sig_bytes = coz.sig();
+/// let pay_value = coz.pay();
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CozJson {
+    /// The payload as a raw JSON value.
+    pub pay: Value,
+    /// The signature bytes (base64url-encoded in JSON).
     #[serde(with = "crate::b64")]
-    sig: Vec<u8>,
+    pub sig: Vec<u8>,
 }
 
 impl<A: Algorithm + crate::key::ops::KeyOps> Serialize for Coz<A> {

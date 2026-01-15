@@ -5,6 +5,7 @@
 use std::str::FromStr;
 
 use anyhow::{Context, Result};
+use serde::Deserialize;
 
 /// Input that can be a JSON literal or file path (for key data).
 #[derive(Clone, Debug)]
@@ -45,6 +46,16 @@ impl FromStr for CozInput {
     }
 }
 
+/// Parsed Coz message with preserved raw pay bytes.
+#[derive(Debug, Deserialize)]
+pub struct CozParsed<'a> {
+    /// Raw pay JSON (preserved exactly as input, no re-serialization)
+    #[serde(borrow)]
+    pub pay: &'a serde_json::value::RawValue,
+    /// Signature (base64url encoded)
+    pub sig: String,
+}
+
 impl CozInput {
     /// Load and parse as JSON.
     pub fn load(&self) -> Result<serde_json::Value> {
@@ -53,6 +64,15 @@ impl CozInput {
         } else {
             let content = std::fs::read_to_string(&self.0).context("failed to read coz file")?;
             serde_json::from_str(&content).context("failed to parse coz file as JSON")
+        }
+    }
+
+    /// Load raw content as string for parsing with preserved raw values.
+    pub fn load_raw_str(&self) -> Result<String> {
+        if self.0.starts_with('{') {
+            Ok(self.0.clone())
+        } else {
+            std::fs::read_to_string(&self.0).context("failed to read coz file")
         }
     }
 }

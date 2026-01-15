@@ -15,7 +15,8 @@ anyhow     = "1"
 base64ct   = { workspace = true }
 clap       = { version = "4", features = ["derive"] }
 coz-rs     = { path = "../coz-rs", version = "0.2" }
-serde_json = { workspace = true }
+serde      = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value", "preserve_order"] }
 
 [dev-dependencies]
 assert_cmd = "2"

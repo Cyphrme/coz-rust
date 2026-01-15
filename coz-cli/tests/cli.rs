@@ -76,11 +76,14 @@ fn signpay_and_verify_roundtrip() {
         .trim()
         .to_string();
 
-    // Sign a payload
-    let msg_output = coz()
-        .args(["signpay", r#"{"msg":"Hello, Coz!"}"#, &key])
-        .output()
-        .unwrap();
+    // Extract alg and tmb from key for the pay
+    let key_json: serde_json::Value = serde_json::from_str(&key).unwrap();
+    let alg = key_json["alg"].as_str().unwrap();
+    let tmb = key_json["tmb"].as_str().unwrap();
+
+    // Sign a payload with required alg and tmb
+    let pay = format!(r#"{{"alg":"{}","msg":"Hello, Coz!","tmb":"{}"}}"#, alg, tmb);
+    let msg_output = coz().args(["signpay", &pay, &key]).output().unwrap();
     let msg = String::from_utf8(msg_output.stdout)
         .unwrap()
         .trim()
@@ -109,17 +112,20 @@ fn verify_wrong_key_fails() {
         .trim()
         .to_string();
 
+    // Extract alg and tmb from key1 for the pay
+    let key1_json: serde_json::Value = serde_json::from_str(&key1).unwrap();
+    let alg = key1_json["alg"].as_str().unwrap();
+    let tmb = key1_json["tmb"].as_str().unwrap();
+
     // Sign with key1
-    let msg_output = coz()
-        .args(["signpay", r#"{"msg":"test"}"#, &key1])
-        .output()
-        .unwrap();
+    let pay = format!(r#"{{"alg":"{}","msg":"test","tmb":"{}"}}"#, alg, tmb);
+    let msg_output = coz().args(["signpay", &pay, &key1]).output().unwrap();
     let msg = String::from_utf8(msg_output.stdout)
         .unwrap()
         .trim()
         .to_string();
 
-    // Verify with key2 should fail
+    // Verify with key2 should fail (signature won't match)
     coz()
         .args(["verify", &msg, &key2])
         .assert()
@@ -128,43 +134,39 @@ fn verify_wrong_key_fails() {
 }
 
 #[test]
-fn sign_resigns_with_new_key() {
-    // Generate two keys
-    let key1_output = coz().arg("newkey").output().unwrap();
-    let key1 = String::from_utf8(key1_output.stdout)
+fn sign_resigns_with_same_key() {
+    // sign command is for re-signing with the SAME key (refreshing signature)
+    // For signing with a different key, you need to update pay.alg and pay.tmb first
+    let key_output = coz().arg("newkey").output().unwrap();
+    let key = String::from_utf8(key_output.stdout)
         .unwrap()
         .trim()
         .to_string();
 
-    let key2_output = coz().args(["newkey", "es256"]).output().unwrap();
-    let key2 = String::from_utf8(key2_output.stdout)
-        .unwrap()
-        .trim()
-        .to_string();
+    // Extract alg and tmb from key
+    let key_json: serde_json::Value = serde_json::from_str(&key).unwrap();
+    let alg = key_json["alg"].as_str().unwrap();
+    let tmb = key_json["tmb"].as_str().unwrap();
 
-    // Sign with key1
-    let msg1_output = coz()
-        .args(["signpay", r#"{"msg":"test"}"#, &key1])
-        .output()
-        .unwrap();
+    // Sign with key
+    let pay = format!(r#"{{"alg":"{}","msg":"test","tmb":"{}"}}"#, alg, tmb);
+    let msg1_output = coz().args(["signpay", &pay, &key]).output().unwrap();
     let msg1 = String::from_utf8(msg1_output.stdout)
         .unwrap()
         .trim()
         .to_string();
 
-    // Re-sign with key2
-    let msg2_output = coz().args(["sign", &msg1, &key2]).output().unwrap();
+    // Re-sign with same key (should work)
+    let msg2_output = coz().args(["sign", &msg1, &key]).output().unwrap();
+    assert!(msg2_output.status.success(), "sign failed");
     let msg2 = String::from_utf8(msg2_output.stdout)
         .unwrap()
         .trim()
         .to_string();
 
-    // Should contain ES256 (key2's algorithm)
-    assert!(msg2.contains("\"alg\":\"ES256\""));
-
-    // Verify with key2 should succeed
+    // Verify with key should succeed
     coz()
-        .args(["verify", &msg2, &key2])
+        .args(["verify", &msg2, &key])
         .assert()
         .success()
         .stdout("true\n");
@@ -179,10 +181,13 @@ fn meta_computes_digests() {
         .trim()
         .to_string();
 
-    let msg_output = coz()
-        .args(["signpay", r#"{"msg":"test"}"#, &key])
-        .output()
-        .unwrap();
+    // Extract alg and tmb from key
+    let key_json: serde_json::Value = serde_json::from_str(&key).unwrap();
+    let alg = key_json["alg"].as_str().unwrap();
+    let tmb = key_json["tmb"].as_str().unwrap();
+
+    let pay = format!(r#"{{"alg":"{}","msg":"test","tmb":"{}"}}"#, alg, tmb);
+    let msg_output = coz().args(["signpay", &pay, &key]).output().unwrap();
     let msg = String::from_utf8(msg_output.stdout)
         .unwrap()
         .trim()
@@ -245,19 +250,22 @@ fn key_from_file() {
 
 #[test]
 fn all_algorithms_roundtrip() {
-    for alg in ["ed25519", "es256", "es384", "es512"] {
+    for alg_name in ["ed25519", "es256", "es384", "es512"] {
         // Generate key
-        let key_output = coz().args(["newkey", alg]).output().unwrap();
+        let key_output = coz().args(["newkey", alg_name]).output().unwrap();
         let key = String::from_utf8(key_output.stdout)
             .unwrap()
             .trim()
             .to_string();
 
-        // Sign
-        let msg_output = coz()
-            .args(["signpay", r#"{"msg":"test"}"#, &key])
-            .output()
-            .unwrap();
+        // Extract alg and tmb from key
+        let key_json: serde_json::Value = serde_json::from_str(&key).unwrap();
+        let alg = key_json["alg"].as_str().unwrap();
+        let tmb = key_json["tmb"].as_str().unwrap();
+
+        // Sign with properly-formed pay
+        let pay = format!(r#"{{"alg":"{}","msg":"test","tmb":"{}"}}"#, alg, tmb);
+        let msg_output = coz().args(["signpay", &pay, &key]).output().unwrap();
         let msg = String::from_utf8(msg_output.stdout)
             .unwrap()
             .trim()
@@ -270,4 +278,65 @@ fn all_algorithms_roundtrip() {
             .success()
             .stdout("true\n");
     }
+}
+
+/// Regression test: signpay output must be verifiable immediately.
+///
+/// This test guards against a bug where signpay would sign one serialization
+/// of the pay object but output a different serialization (due to re-serializing
+/// the object, which could change field order). The fix ensures we output the
+/// exact bytes that were signed.
+#[test]
+fn signpay_output_matches_signed_bytes() {
+    // Use ES256 deterministically
+    let key = r#"{"alg":"ES256","prv":"bNstg4_H3m3SlROufwRSEgibLrBuRq9114OvdapcpVA","pub":"2nTOaFVm2QLxmUO_SjgyscVHBtvHEfo2rq65MvgNRjORojq39Haq9rXNxvXxwba_Xj0F5vZibJR3isBdOWbo5g","tmb":"U5XUZots-WmQYcQWmsO751Xk0yeVi9XUKWQ2mGz6Aqg"}"#;
+
+    // Sign a payload with specific field order (alg and tmb are required)
+    let pay = r#"{"alg":"ES256","zzz":"last","aaa":"first","msg":"hello","tmb":"U5XUZots-WmQYcQWmsO751Xk0yeVi9XUKWQ2mGz6Aqg"}"#;
+    let msg_output = coz().args(["signpay", pay, key]).output().unwrap();
+    assert!(msg_output.status.success(), "signpay failed");
+
+    let msg = String::from_utf8(msg_output.stdout)
+        .unwrap()
+        .trim()
+        .to_string();
+
+    // Verify the signature - this will fail if output bytes don't match signed bytes
+    coz()
+        .args(["verify", &msg, key])
+        .assert()
+        .success()
+        .stdout("true\n");
+}
+
+/// Regression test: sign (re-sign) output must be verifiable immediately.
+///
+/// Similar to signpay_output_matches_signed_bytes, but for the sign command
+/// that re-signs an existing coz with the same key.
+#[test]
+fn sign_output_matches_signed_bytes() {
+    let key = r#"{"alg":"ES256","prv":"bNstg4_H3m3SlROufwRSEgibLrBuRq9114OvdapcpVA","pub":"2nTOaFVm2QLxmUO_SjgyscVHBtvHEfo2rq65MvgNRjORojq39Haq9rXNxvXxwba_Xj0F5vZibJR3isBdOWbo5g","tmb":"U5XUZots-WmQYcQWmsO751Xk0yeVi9XUKWQ2mGz6Aqg"}"#;
+
+    // Sign with key
+    let pay = r#"{"alg":"ES256","msg":"test","tmb":"U5XUZots-WmQYcQWmsO751Xk0yeVi9XUKWQ2mGz6Aqg"}"#;
+    let msg1_output = coz().args(["signpay", pay, key]).output().unwrap();
+    let msg1 = String::from_utf8(msg1_output.stdout)
+        .unwrap()
+        .trim()
+        .to_string();
+
+    // Re-sign with same key
+    let msg2_output = coz().args(["sign", &msg1, key]).output().unwrap();
+    assert!(msg2_output.status.success(), "sign failed");
+    let msg2 = String::from_utf8(msg2_output.stdout)
+        .unwrap()
+        .trim()
+        .to_string();
+
+    // Verify with key - will fail if output bytes don't match signed bytes
+    coz()
+        .args(["verify", &msg2, key])
+        .assert()
+        .success()
+        .stdout("true\n");
 }

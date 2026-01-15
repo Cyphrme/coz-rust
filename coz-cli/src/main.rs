@@ -179,28 +179,37 @@ fn cmd_sign(coz: CozInput, key: KeyInput) -> Result<()> {
     let prv_bytes = Base64UrlUnpadded::decode_vec(prv_b64).context("invalid base64 in 'prv'")?;
     let pub_bytes = Base64UrlUnpadded::decode_vec(pub_b64).context("invalid base64 in 'pub'")?;
 
-    // Update pay with new key's alg and tmb
-    let mut pay_obj = pay_value
-        .as_object()
-        .context("pay must be a JSON object")?
-        .clone();
-    pay_obj.insert("alg".to_string(), serde_json::json!(alg));
-    pay_obj.insert("tmb".to_string(), serde_json::json!(tmb_b64));
+    // Validate pay has required fields
+    let pay_obj = pay_value.as_object().context("pay must be a JSON object")?;
 
-    // Serialize the updated pay
-    let updated_pay = serde_json::to_vec(&pay_obj)?;
+    let pay_alg = pay_obj
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .context("pay missing 'alg' field")?;
+    let pay_tmb = pay_obj
+        .get("tmb")
+        .and_then(|v| v.as_str())
+        .context("pay missing 'tmb' field")?;
+
+    // Validate alg and tmb match the signing key
+    if pay_alg != alg {
+        anyhow::bail!("pay.alg '{}' does not match key.alg '{}'", pay_alg, alg);
+    }
+    if pay_tmb != tmb_b64 {
+        anyhow::bail!("pay.tmb '{}' does not match key.tmb '{}'", pay_tmb, tmb_b64);
+    }
+
+    // Preserve exact input field order - just serialize as-is
+    let pay_bytes = serde_json::to_vec(pay_obj)?;
 
     // Sign
-    let (sig, _cad) = coz_rs::sign_json(&updated_pay, alg, &prv_bytes, &pub_bytes)
+    let (sig, _cad) = coz_rs::sign_json(&pay_bytes, alg, &prv_bytes, &pub_bytes)
         .with_context(|| format!("failed to sign with algorithm: {alg}"))?;
 
     // Output Coz JSON
     let sig_b64 = Base64UrlUnpadded::encode_string(&sig);
-    println!(
-        r#"{{"pay":{},"sig":"{}"}}"#,
-        serde_json::to_string(&pay_obj)?,
-        sig_b64
-    );
+    let pay_str = String::from_utf8(pay_bytes).context("pay is not valid UTF-8")?;
+    println!(r#"{{"pay":{},"sig":"{}"}}"#, pay_str, sig_b64);
 
     Ok(())
 }
@@ -233,28 +242,37 @@ fn cmd_signpay(pay: PayInput, key: KeyInput) -> Result<()> {
     let prv_bytes = Base64UrlUnpadded::decode_vec(prv_b64).context("invalid base64 in 'prv'")?;
     let pub_bytes = Base64UrlUnpadded::decode_vec(pub_b64).context("invalid base64 in 'pub'")?;
 
-    // Augment pay with alg and tmb
-    let mut pay_obj = pay_json
-        .as_object()
-        .context("pay must be a JSON object")?
-        .clone();
-    pay_obj.insert("alg".to_string(), serde_json::json!(alg));
-    pay_obj.insert("tmb".to_string(), serde_json::json!(tmb_b64));
+    // Validate pay has required fields
+    let pay_obj = pay_json.as_object().context("pay must be a JSON object")?;
 
-    // Serialize the augmented pay
-    let augmented_pay = serde_json::to_vec(&pay_obj)?;
+    let pay_alg = pay_obj
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .context("pay missing 'alg' field")?;
+    let pay_tmb = pay_obj
+        .get("tmb")
+        .and_then(|v| v.as_str())
+        .context("pay missing 'tmb' field")?;
+
+    // Validate alg and tmb match the signing key
+    if pay_alg != alg {
+        anyhow::bail!("pay.alg '{}' does not match key.alg '{}'", pay_alg, alg);
+    }
+    if pay_tmb != tmb_b64 {
+        anyhow::bail!("pay.tmb '{}' does not match key.tmb '{}'", pay_tmb, tmb_b64);
+    }
+
+    // Preserve exact input field order - just serialize as-is
+    let pay_bytes = serde_json::to_vec(pay_obj)?;
 
     // Sign
-    let (sig, _cad) = coz_rs::sign_json(&augmented_pay, alg, &prv_bytes, &pub_bytes)
+    let (sig, _cad) = coz_rs::sign_json(&pay_bytes, alg, &prv_bytes, &pub_bytes)
         .with_context(|| format!("failed to sign with algorithm: {alg}"))?;
 
     // Output Coz JSON
     let sig_b64 = Base64UrlUnpadded::encode_string(&sig);
-    println!(
-        r#"{{"pay":{},"sig":"{}"}}"#,
-        serde_json::to_string(&pay_obj)?,
-        sig_b64
-    );
+    let pay_str = String::from_utf8(pay_bytes).context("pay is not valid UTF-8")?;
+    println!(r#"{{"pay":{},"sig":"{}"}}"#, pay_str, sig_b64);
 
     Ok(())
 }
@@ -262,19 +280,21 @@ fn cmd_signpay(pay: PayInput, key: KeyInput) -> Result<()> {
 /// Verify a Coz message signature.
 fn cmd_verify(coz: CozInput, key: KeyInput) -> Result<()> {
     use anyhow::Context;
+    use input::CozParsed;
 
-    let coz_json = coz.load()?;
+    // Load raw string to preserve exact pay bytes
+    let raw_str = coz.load_raw_str()?;
+    let parsed: CozParsed = serde_json::from_str(&raw_str).context("failed to parse coz JSON")?;
+
+    // Get raw pay bytes (no re-serialization!)
+    let pay_json = parsed.pay.get().as_bytes();
+
+    // Decode signature
+    let sig =
+        Base64UrlUnpadded::decode_vec(&parsed.sig).context("invalid base64 in 'sig' field")?;
+
+    // Load key
     let key_json = key.load()?;
-
-    // Extract pay and sig from coz
-    let pay_value = coz_json.get("pay").context("coz missing 'pay' field")?;
-    let pay_json = serde_json::to_vec(pay_value)?;
-
-    let sig_b64 = coz_json
-        .get("sig")
-        .and_then(|v| v.as_str())
-        .context("coz missing 'sig' field")?;
-    let sig = Base64UrlUnpadded::decode_vec(sig_b64).context("invalid base64 in 'sig' field")?;
 
     // Extract alg and pub from key
     let alg = key_json
@@ -289,7 +309,7 @@ fn cmd_verify(coz: CozInput, key: KeyInput) -> Result<()> {
         Base64UrlUnpadded::decode_vec(pub_b64).context("invalid base64 in 'pub' field")?;
 
     // Verify
-    let valid = coz_rs::verify_json(&pay_json, &sig, alg, &pub_bytes)
+    let valid = coz_rs::verify_json(pay_json, &sig, alg, &pub_bytes)
         .with_context(|| format!("unsupported algorithm: {alg}"))?;
 
     println!("{}", valid);

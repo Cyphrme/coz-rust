@@ -123,15 +123,20 @@ pub mod ops {
         }
 
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
-            use p256::ecdsa::signature::Signer;
-            let sig: p256::ecdsa::Signature = sk.sign(digest);
+            use p256::ecdsa::signature::hazmat::PrehashSigner;
+            // Use sign_prehash since digest is already hashed (cad = H(pay))
+            // Signer::sign() would re-hash, causing double-hashing
+            let sig: p256::ecdsa::Signature = match sk.sign_prehash(digest) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
             // Normalize to low-S for non-malleability (Coz spec requirement)
             let normalized = sig.normalize_s().unwrap_or(sig);
             normalized.to_bytes().to_vec()
         }
 
         fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
-            use p256::ecdsa::signature::Verifier;
+            use p256::ecdsa::signature::hazmat::PrehashVerifier;
             let Ok(sig) = p256::ecdsa::Signature::from_slice(sig) else {
                 return false;
             };
@@ -139,7 +144,8 @@ pub mod ops {
             if sig.normalize_s().is_some() {
                 return false;
             }
-            vk.verify(digest, &sig).is_ok()
+            // Use verify_prehash since digest is already hashed (cad = H(pay))
+            vk.verify_prehash(digest, &sig).is_ok()
         }
     }
 
@@ -176,15 +182,19 @@ pub mod ops {
         }
 
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
-            use p384::ecdsa::signature::Signer;
-            let sig: p384::ecdsa::Signature = sk.sign(digest);
+            use p384::ecdsa::signature::hazmat::PrehashSigner;
+            // Use sign_prehash since digest is already hashed (cad = H(pay))
+            let sig: p384::ecdsa::Signature = match sk.sign_prehash(digest) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
             // Normalize to low-S for non-malleability (Coz spec requirement)
             let normalized = sig.normalize_s().unwrap_or(sig);
             normalized.to_bytes().to_vec()
         }
 
         fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
-            use p384::ecdsa::signature::Verifier;
+            use p384::ecdsa::signature::hazmat::PrehashVerifier;
             let Ok(sig) = p384::ecdsa::Signature::from_slice(sig) else {
                 return false;
             };
@@ -192,7 +202,7 @@ pub mod ops {
             if sig.normalize_s().is_some() {
                 return false;
             }
-            vk.verify(digest, &sig).is_ok()
+            vk.verify_prehash(digest, &sig).is_ok()
         }
     }
 
@@ -229,15 +239,19 @@ pub mod ops {
         }
 
         fn sign(sk: &Self::SigningKeyInner, digest: &[u8]) -> Vec<u8> {
-            use p521::ecdsa::signature::Signer;
-            let sig: p521::ecdsa::Signature = sk.sign(digest);
+            use p521::ecdsa::signature::hazmat::PrehashSigner;
+            // Use sign_prehash since digest is already hashed (cad = H(pay))
+            let sig: p521::ecdsa::Signature = match sk.sign_prehash(digest) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
             // Normalize to low-S for non-malleability (Coz spec requirement)
             let normalized = sig.normalize_s().unwrap_or(sig);
             normalized.to_bytes().to_vec()
         }
 
         fn verify(vk: &Self::VerifyingKeyInner, digest: &[u8], sig: &[u8]) -> bool {
-            use p521::ecdsa::signature::Verifier;
+            use p521::ecdsa::signature::hazmat::PrehashVerifier;
             let Ok(sig) = p521::ecdsa::Signature::from_slice(sig) else {
                 return false;
             };
@@ -245,7 +259,7 @@ pub mod ops {
             if sig.normalize_s().is_some() {
                 return false;
             }
-            vk.verify(digest, &sig).is_ok()
+            vk.verify_prehash(digest, &sig).is_ok()
         }
     }
 

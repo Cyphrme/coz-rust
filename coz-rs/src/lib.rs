@@ -16,6 +16,7 @@
 
 #![warn(missing_docs)]
 #![warn(rust_2018_idioms)]
+#![forbid(unsafe_code)]
 
 pub mod alg;
 pub mod b64;

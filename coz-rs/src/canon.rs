@@ -29,6 +29,7 @@ pub const CZD_CANON: &[&str] = &["cad", "sig"];
 ///
 /// This is the hash of the canonical JSON form of `pay`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[must_use = "canonical digests should not be discarded"]
 pub struct Cad(#[serde(with = "crate::b64")] Vec<u8>);
 
 impl Cad {
@@ -67,6 +68,7 @@ impl AsRef<[u8]> for Cad {
 
 /// Coz digest - hash of canonical `{"cad":"...","sig":"..."}`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[must_use = "coz digests should not be discarded"]
 pub struct Czd(#[serde(with = "crate::b64")] Vec<u8>);
 
 impl Czd {

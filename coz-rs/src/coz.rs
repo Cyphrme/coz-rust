@@ -196,6 +196,7 @@ impl PayBuilder {
 /// A signed Coz message.
 ///
 /// Contains the payload, signature, and computed digests.
+#[must_use = "signed messages should not be discarded"]
 pub struct Coz<A: Algorithm> {
     /// The payload.
     pub pay: Pay,

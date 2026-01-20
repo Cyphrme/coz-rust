@@ -20,6 +20,7 @@ use crate::alg::{Algorithm, ES256, ES384, ES512, Ed25519};
 /// Thumbprints uniquely identify keys. The hash algorithm is determined by
 /// the key's algorithm (e.g., ES256 → SHA-256, ES384 → SHA-384, ES512 → SHA-512).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[must_use = "thumbprints are unique key identifiers and should not be discarded"]
 pub struct Thumbprint(#[serde(with = "crate::b64")] Vec<u8>);
 
 impl Thumbprint {

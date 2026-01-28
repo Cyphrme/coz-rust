@@ -535,6 +535,103 @@ where
 }
 
 // ============================================================================
+// Runtime Key Operations (via Alg enum)
+// ============================================================================
+
+use crate::alg::Alg;
+
+/// A keypair with raw bytes for runtime use.
+///
+/// This struct holds the algorithm, public key bytes, and private key bytes
+/// for use when the algorithm is determined at runtime.
+#[derive(Debug, Clone)]
+pub struct KeyPair {
+    /// The algorithm used for this keypair.
+    pub alg: Alg,
+    /// Public key bytes (uncompressed format for ECDSA, raw for Ed25519).
+    pub pub_bytes: Vec<u8>,
+    /// Private key bytes (scalar for ECDSA, seed for Ed25519).
+    pub prv_bytes: Vec<u8>,
+    /// Key thumbprint.
+    pub thumbprint: Thumbprint,
+}
+
+impl Alg {
+    /// Generate a new keypair for this algorithm.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use coz::Alg;
+    ///
+    /// let keypair = Alg::ES256.generate_keypair();
+    /// assert_eq!(keypair.alg, Alg::ES256);
+    /// assert_eq!(keypair.pub_bytes.len(), 64); // ES256 pub size
+    /// ```
+    #[must_use]
+    pub fn generate_keypair(self) -> KeyPair {
+        match self {
+            Self::ES256 => generate_keypair_impl::<ES256>(self),
+            Self::ES384 => generate_keypair_impl::<ES384>(self),
+            Self::ES512 => generate_keypair_impl::<ES512>(self),
+            Self::Ed25519 => generate_keypair_impl::<Ed25519>(self),
+        }
+    }
+
+    /// Derive public key bytes from private key bytes.
+    ///
+    /// Returns `None` if the private key bytes are invalid for this algorithm.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use coz::Alg;
+    ///
+    /// let keypair = Alg::ES256.generate_keypair();
+    /// let derived_pub = Alg::ES256.derive_public_key(&keypair.prv_bytes).unwrap();
+    /// assert_eq!(derived_pub, keypair.pub_bytes);
+    /// ```
+    pub fn derive_public_key(self, prv_bytes: &[u8]) -> Option<Vec<u8>> {
+        match self {
+            Self::ES256 => derive_public_impl::<ES256>(prv_bytes),
+            Self::ES384 => derive_public_impl::<ES384>(prv_bytes),
+            Self::ES512 => derive_public_impl::<ES512>(prv_bytes),
+            Self::Ed25519 => derive_public_impl::<Ed25519>(prv_bytes),
+        }
+    }
+
+    /// Compute thumbprint from public key bytes.
+    ///
+    /// Returns `None` if the public key bytes are invalid for this algorithm.
+    pub fn compute_thumbprint(self, pub_bytes: &[u8]) -> Option<Thumbprint> {
+        compute_thumbprint_for_alg(self.name(), pub_bytes)
+    }
+}
+
+/// Internal helper: generate keypair for a specific algorithm type.
+fn generate_keypair_impl<A>(alg: Alg) -> KeyPair
+where
+    A: Algorithm + KeyOps,
+{
+    let sk = SigningKey::<A>::generate();
+    KeyPair {
+        alg,
+        pub_bytes: sk.verifying_key().public_key_bytes().to_vec(),
+        prv_bytes: sk.private_key_bytes().to_vec(),
+        thumbprint: sk.verifying_key().thumbprint().clone(),
+    }
+}
+
+/// Internal helper: derive public key bytes from private key bytes.
+fn derive_public_impl<A>(prv_bytes: &[u8]) -> Option<Vec<u8>>
+where
+    A: Algorithm + KeyOps,
+{
+    let sk = signing_key_from_bytes::<A>(prv_bytes)?;
+    Some(sk.verifying_key().public_key_bytes().to_vec())
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

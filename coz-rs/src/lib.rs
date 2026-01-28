@@ -28,7 +28,7 @@ mod golden;
 pub mod key;
 pub mod revoke;
 
-pub use alg::{Algorithm, ES256, ES384, ES512, Ed25519};
+pub use alg::{Alg, Algorithm, ES256, ES384, ES512, Ed25519};
 // Re-export crypto primitives for downstream crates
 pub use base64ct;
 pub use canon::{
@@ -38,7 +38,8 @@ pub use canon::{
 pub use coz::{Coz, CozJson, Pay, PayBuilder, sign_json, verify_json};
 pub use error::{Error, Result};
 pub use key::{
-    SigningKey, Thumbprint, VerifyingKey, compute_thumbprint_for_alg, signing_key_from_bytes,
+    KeyPair, SigningKey, Thumbprint, VerifyingKey, compute_thumbprint_for_alg,
+    signing_key_from_bytes,
 };
 pub use revoke::{RVK_MAX_SIZE, is_valid_rvk, revoke, revoke_json, validate_revoke_size};
 pub use {digest, sha2};

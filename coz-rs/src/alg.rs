@@ -113,6 +113,102 @@ impl Algorithm for Ed25519 {
 }
 
 // ============================================================================
+// Runtime Algorithm Selector
+// ============================================================================
+
+/// Runtime algorithm selector for type-safe dispatch.
+///
+/// Use this enum when the algorithm is determined at runtime (e.g., from user
+/// input or configuration). It provides a single parse point via [`Alg::from_str`]
+/// and methods that delegate to the generic [`Algorithm`] implementations.
+///
+/// # Example
+///
+/// ```ignore
+/// use coz::Alg;
+///
+/// let alg = Alg::from_str("ES256").expect("valid algorithm");
+/// assert_eq!(alg.name(), "ES256");
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Alg {
+    /// ES256: ECDSA using P-256 and SHA-256.
+    ES256,
+    /// ES384: ECDSA using P-384 and SHA-384.
+    ES384,
+    /// ES512: ECDSA using P-521 and SHA-512.
+    ES512,
+    /// Ed25519: EdDSA using Curve25519.
+    Ed25519,
+}
+
+impl Alg {
+    /// Parse algorithm name from string.
+    ///
+    /// Returns `None` if the algorithm is not recognized.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use coz::Alg;
+    ///
+    /// assert_eq!(Alg::from_str("ES256"), Some(Alg::ES256));
+    /// assert_eq!(Alg::from_str("unknown"), None);
+    /// ```
+    #[must_use]
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "ES256" => Some(Self::ES256),
+            "ES384" => Some(Self::ES384),
+            "ES512" => Some(Self::ES512),
+            "Ed25519" => Some(Self::Ed25519),
+            _ => None,
+        }
+    }
+
+    /// Get the algorithm name as a static string.
+    ///
+    /// This returns the same value as `Algorithm::NAME` for the corresponding type.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::ES256 => ES256::NAME,
+            Self::ES384 => ES384::NAME,
+            Self::ES512 => ES512::NAME,
+            Self::Ed25519 => Ed25519::NAME,
+        }
+    }
+
+    /// Get the public key size in bytes.
+    #[must_use]
+    pub const fn pub_size(self) -> usize {
+        match self {
+            Self::ES256 => ES256::PUB_SIZE,
+            Self::ES384 => ES384::PUB_SIZE,
+            Self::ES512 => ES512::PUB_SIZE,
+            Self::Ed25519 => Ed25519::PUB_SIZE,
+        }
+    }
+
+    /// Get the private key size in bytes.
+    #[must_use]
+    pub const fn prv_size(self) -> usize {
+        match self {
+            Self::ES256 => ES256::PRV_SIZE,
+            Self::ES384 => ES384::PRV_SIZE,
+            Self::ES512 => ES512::PRV_SIZE,
+            Self::Ed25519 => Ed25519::PRV_SIZE,
+        }
+    }
+}
+
+impl std::fmt::Display for Alg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

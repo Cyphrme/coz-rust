@@ -504,8 +504,17 @@ where
 
 /// Create a signing key from raw private key bytes.
 ///
-/// This is used internally for runtime signing.
-pub(crate) fn signing_key_from_bytes<A>(prv_bytes: &[u8]) -> Option<SigningKey<A>>
+/// This reconstructs a [`SigningKey`] from its private key bytes,
+/// deriving the corresponding public key and thumbprint.
+///
+/// # Example
+///
+/// ```ignore
+/// use coz::{ES256, signing_key_from_bytes};
+/// let sk = signing_key_from_bytes::<ES256>(&prv_bytes).unwrap();
+/// let derived_pub = sk.verifying_key().public_key_bytes();
+/// ```
+pub fn signing_key_from_bytes<A>(prv_bytes: &[u8]) -> Option<SigningKey<A>>
 where
     A: Algorithm + KeyOps,
 {

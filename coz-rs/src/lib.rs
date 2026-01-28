@@ -37,6 +37,8 @@ pub use canon::{
 };
 pub use coz::{Coz, CozJson, Pay, PayBuilder, sign_json, verify_json};
 pub use error::{Error, Result};
-pub use key::{SigningKey, Thumbprint, VerifyingKey, compute_thumbprint_for_alg};
+pub use key::{
+    SigningKey, Thumbprint, VerifyingKey, compute_thumbprint_for_alg, signing_key_from_bytes,
+};
 pub use revoke::{RVK_MAX_SIZE, is_valid_rvk, revoke, revoke_json, validate_revoke_size};
 pub use {digest, sha2};

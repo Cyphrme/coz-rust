@@ -28,7 +28,7 @@ mod golden;
 pub mod key;
 pub mod revoke;
 
-pub use alg::{Alg, Algorithm, ES256, ES384, ES512, Ed25519};
+pub use alg::{Alg, Algorithm, ES256, ES384, ES512, Ed25519, HashAlg};
 // Re-export crypto primitives for downstream crates
 pub use base64ct;
 pub use canon::{

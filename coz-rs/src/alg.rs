@@ -15,6 +15,65 @@ mod private {
 }
 
 // ============================================================================
+// Hash Algorithm Enum
+// ============================================================================
+
+/// Runtime hash algorithm selector.
+///
+/// This enum represents the hash algorithms used by Coz signing algorithms.
+/// Multiple signing algorithms may map to the same hash algorithm
+/// (e.g., ES512 and Ed25519 both use SHA-512).
+///
+/// # Relationship with [`Algorithm`] trait
+///
+/// Each [`Algorithm`] implementation defines both:
+/// - `type Hasher: Digest` — compile-time hasher type for generic code
+/// - `const HASH_ALG: HashAlg` — runtime-accessible hash algorithm identifier
+///
+/// This ensures the compile-time and runtime representations stay in sync.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum HashAlg {
+    /// SHA-256: 32-byte (256-bit) digest.
+    Sha256,
+    /// SHA-384: 48-byte (384-bit) digest.
+    Sha384,
+    /// SHA-512: 64-byte (512-bit) digest.
+    Sha512,
+}
+
+impl HashAlg {
+    /// Get the digest size in bytes.
+    #[must_use]
+    pub const fn digest_size(self) -> usize {
+        match self {
+            Self::Sha256 => 32,
+            Self::Sha384 => 48,
+            Self::Sha512 => 64,
+        }
+    }
+
+    /// Hash bytes using this algorithm.
+    #[must_use]
+    pub fn hash_bytes(self, data: &[u8]) -> Vec<u8> {
+        match self {
+            Self::Sha256 => Sha256::digest(data).to_vec(),
+            Self::Sha384 => Sha384::digest(data).to_vec(),
+            Self::Sha512 => Sha512::digest(data).to_vec(),
+        }
+    }
+}
+
+impl std::fmt::Display for HashAlg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Sha256 => write!(f, "SHA-256"),
+            Self::Sha384 => write!(f, "SHA-384"),
+            Self::Sha512 => write!(f, "SHA-512"),
+        }
+    }
+}
+
+// ============================================================================
 // Algorithm trait
 // ============================================================================
 
@@ -26,6 +85,12 @@ pub trait Algorithm: private::Sealed + Sized + 'static {
     /// Algorithm name as it appears in JSON (e.g., "ES256").
     const NAME: &'static str;
 
+    /// The runtime hash algorithm identifier.
+    ///
+    /// This must match the `Hasher` type (e.g., if `Hasher = Sha256`,
+    /// then `HASH_ALG = HashAlg::Sha256`).
+    const HASH_ALG: HashAlg;
+
     /// Signature size in bytes.
     const SIG_SIZE: usize;
 
@@ -35,7 +100,7 @@ pub trait Algorithm: private::Sealed + Sized + 'static {
     /// Private key size in bytes.
     const PRV_SIZE: usize;
 
-    /// The hashing algorithm used for digests.
+    /// The hashing algorithm used for digests (compile-time type).
     type Hasher: Digest + Clone;
 }
 
@@ -53,6 +118,7 @@ impl Algorithm for ES256 {
     type Hasher = Sha256;
 
     const NAME: &'static str = "ES256";
+    const HASH_ALG: HashAlg = HashAlg::Sha256;
     // Uncompressed X || Y (without 0x04 prefix)
     const PRV_SIZE: usize = 32;
     const PUB_SIZE: usize = 64;
@@ -69,6 +135,7 @@ impl Algorithm for ES384 {
     type Hasher = Sha384;
 
     const NAME: &'static str = "ES384";
+    const HASH_ALG: HashAlg = HashAlg::Sha384;
     const PRV_SIZE: usize = 48;
     const PUB_SIZE: usize = 96;
     const SIG_SIZE: usize = 96;
@@ -86,6 +153,7 @@ impl Algorithm for ES512 {
     type Hasher = Sha512;
 
     const NAME: &'static str = "ES512";
+    const HASH_ALG: HashAlg = HashAlg::Sha512;
     // 66 * 2
     const PRV_SIZE: usize = 66;
     // 66 * 2
@@ -107,6 +175,7 @@ impl Algorithm for Ed25519 {
     type Hasher = Sha512;
 
     const NAME: &'static str = "Ed25519";
+    const HASH_ALG: HashAlg = HashAlg::Sha512;
     const PRV_SIZE: usize = 32;
     const PUB_SIZE: usize = 32;
     const SIG_SIZE: usize = 64; // Ed25519 internally uses SHA-512
@@ -198,6 +267,20 @@ impl Alg {
             Self::ES384 => ES384::PRV_SIZE,
             Self::ES512 => ES512::PRV_SIZE,
             Self::Ed25519 => Ed25519::PRV_SIZE,
+        }
+    }
+
+    /// Get the hash algorithm used by this signing algorithm.
+    ///
+    /// Multiple signing algorithms may share the same hash algorithm
+    /// (e.g., ES512 and Ed25519 both use SHA-512).
+    #[must_use]
+    pub const fn hash_alg(self) -> HashAlg {
+        match self {
+            Self::ES256 => ES256::HASH_ALG,
+            Self::ES384 => ES384::HASH_ALG,
+            Self::ES512 => ES512::HASH_ALG,
+            Self::Ed25519 => Ed25519::HASH_ALG,
         }
     }
 }

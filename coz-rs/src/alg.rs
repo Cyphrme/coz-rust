@@ -212,6 +212,30 @@ pub enum Alg {
 }
 
 impl Alg {
+    /// Parse algorithm name from string.
+    ///
+    /// Returns `None` if the algorithm is not recognized.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use coz::Alg;
+    ///
+    /// assert_eq!(Alg::from_str("ES256"), Some(Alg::ES256));
+    /// assert_eq!(Alg::from_str("unknown"), None);
+    /// ```
+    #[must_use]
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "ES256" => Some(Self::ES256),
+            "ES384" => Some(Self::ES384),
+            "ES512" => Some(Self::ES512),
+            "Ed25519" => Some(Self::Ed25519),
+            _ => None,
+        }
+    }
+
     /// Get the algorithm name as a static string.
     ///
     /// This returns the same value as `Algorithm::NAME` for the corresponding type.
